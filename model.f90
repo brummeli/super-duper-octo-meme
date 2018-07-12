@@ -44,7 +44,7 @@ real*8, public, allocatable  :: px(:),py(:),pz(:)
 
 integer, public :: ncels   !number of cells during the simulations
 integer, public :: ncals   
-integer, public :: ncz     
+integer, public :: ncz     !thickness of mesenchyme (number of mesenchyme cell below a specific epithelial cell)
 integer, parameter, public :: nvmax=30   
 integer, public :: radi
 integer, public, parameter :: ng=5,ngg=4 !number of genes (ng -> gen number + 1)F
