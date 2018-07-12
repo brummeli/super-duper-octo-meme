@@ -26,7 +26,7 @@
 
 module coreop2d  
 
-!use opengl_gl
+
 implicit none
 public :: iteracio,ciinicial,calculmarges,reaccio_difusio,dime
 
