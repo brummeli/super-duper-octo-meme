@@ -442,12 +442,12 @@ ui: do j=1,nvmax !for each neighbour of i
       end if
     end do ui
     areasota=sum(areap(i,:))
-    suma=sum(pes(i,:))+2*areasota 
-		areasota=areasota/suma ; pes(i,:)=pes(i,:)/suma	
+    suma=sum(pes(i,:))+2*areasota !suma: Mantel + 2 * Grundfläche = Oberfläche
+		areasota=areasota/suma ; pes(i,:)=pes(i,:)/suma !Anteil der Oberfläche (0-1) von Grundfläche (areasota) und Mantel (pes)
 
 		!Mesenchyme-Mesenchyme Diffusion
     do k=1,4 !for each gene
-      do kk=2,ncz-1 
+      do kk=2,ncz-1 !within the mesenchyme
         hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk-1,k)-q3d(i,kk,k)) !within a cell (in z-direction)
         hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk+1,k)-q3d(i,kk,k))
         do j=1,nvmax !for each neighbour
@@ -480,7 +480,8 @@ ui: do j=1,nvmax !for each neighbour of i
     pes(i,:)=pes(i,:)*suma ; areasota=areasota*suma 
 		
 		!Epithelial Diffusion
-		suma=suma-areasota ; pes(i,:)=pes(i,:)/suma; areasota=areasota/suma
+		suma=suma-areasota !The upper area is not part of the diffusion area
+		pes(i,:)=pes(i,:)/suma; areasota=areasota/suma
     do k=1,4 !ng 
       hq3d(i,1,k)=areasota*(q3d(i,2,k)-q3d(i,1,k)) !Mesenchyme->Epithel Diffusion (vertical)
       do j=1,nvmax
@@ -494,64 +495,70 @@ ui: do j=1,nvmax !for each neighbour of i
         end if
       end do
     end do
-  !no flux at the borders
   end do
 
-	!Update the q3d Matrix. To reduce the effect: * delta
+	!Update the q3d Matrix. To reduce the effect: * delta and dependent on diffusion-coefficient difq3d()
   do k=1,4 ! ng 
     q3d(:,:,k)=q3d(:,:,k)+delta*difq3d(k)*hq3d(:,:,k)
   end do
 
-  !REACCIO
+  !REACCIO -> happens only in epithelial cells
   hq3d=0.
   do i=1,ncels
     if (q3d(i,1,1)>1) then 			!if the activator concentration in the epithelial cell is high enough..
       if (i>=ncils) knots(i)=1 	!..and if it is in the centre (within ncils), then it (becomes) a knot cell
     end if
+		
+		!Reaction and Degradation of Gen1 (Activator)
     a=acac*q3d(i,1,1)-q3d(i,1,4)
     if (a<0) a=0.
     hq3d(i,1,1)=a/(1+ihac*q3d(i,1,2))-mu*q3d(i,1,1)
-    if (q2d(i,1)>us) then
-      hq3d(i,1,2)=q3d(i,1,1)*q2d(i,1)-mu*q3d(i,1,2)
+
+    if (q2d(i,1)>us) then														!if the differentiation state is higher than the first threshold
+      hq3d(i,1,2)=q3d(i,1,1)*q2d(i,1)-mu*q3d(i,1,2)	!then inhibitor is produced (proportionally to diff-state of activator)
     else
-      if (knots(i)==1) then
-        hq3d(i,1,2)=q3d(i,1,1)-mu*q3d(i,1,2)
+      if (knots(i)==1) then													!if the diff-state is not high enough, but the cell is a EK-cell
+        hq3d(i,1,2)=q3d(i,1,1)-mu*q3d(i,1,2)				!then inhibitor is produced proportionally to activator concentration
       end if
     end if
-    if (q2d(i,1)>ud) then
-      a=ih*q2d(i,1)-mu*q3d(i,1,3)
-      if(a<0.) a=0.
+
+    if (q2d(i,1)>ud) then									!if the diff-state  is higher then the second threshold
+      a=ih*q2d(i,1)-mu*q3d(i,1,3)					!then Sec1 is produced, proportionally to diff-state and parameter ih
+      if(a<0.) a=0.							
       hq3d(i,1,3)=a
     else
-      if (knots(i)>ud) then
-        a=ih-mu*q3d(i,1,3)
+      if (knots(i)>ud) then								!if the diff-state is not high enough but the cell is already a EK-cell
+        a=ih-mu*q3d(i,1,3)								!then Sec1 is produced, proportionally to parameter ih
         if(a<0.) a=0.
         hq3d(i,1,3)=a
       end if
     end if
 
-      a=acec*q3d(i,1,1)-mu*q3d(i,1,4)-difq3d(ng)*q3d(i,1,3)
-      if(a<0.) a=0.
-      hq3d(i,1,4)=a
+    a=acec*q3d(i,1,1)-mu*q3d(i,1,4)-difq3d(ng)*q3d(i,1,3)	
+		!Sec2 concentration is proportional to how strong Act acts minus those who are already Sec1
+    if(a<0.) a=0.
+    hq3d(i,1,4)=a
   end do
 
+	!if Act or Inh concentration is too high, there is an error message
 	if (maxval(abs(hq3d(:,1,1:2)))>1D100) then ; 
 		print *,"PANIC OVERFLOW" ; 
 		panic=1 ; return ; 
 	end if
 
-  do i=1,4 
+	!Update the q3d Matrix with new values
+  do i=1,4 					
     q3d(:,1,i)=q3d(:,1,i)+delta*hq3d(:,1,i)
   end do
 
-  where(q3d<0.) q3d=0.  
+  where(q3d<0.) q3d=0.  !remove negativ values
 
 end subroutine reaccio_difusio
 
 subroutine diferenciacio
-  do i=1,ncels
-    q2d(i,1)=q2d(i,1)+tadif*(q3d(i,1,3))
-    if (q2d(i,1)>1.) q2d(i,1)=1.
+  do i=1,ncels 
+    q2d(i,1)=q2d(i,1)+tadif*(q3d(i,1,3))		!increase the diff-state of each cell by Parameter*Sec1-Concentration
+    if (q2d(i,1)>1.) q2d(i,1)=1.						!the diff-state can be maximally 1
   end do
 end subroutine diferenciacio
 
@@ -562,37 +569,33 @@ subroutine empu
 
   hvmalla=0.
   hmalla=0
-  do i=ncils,ncels
-    if (knots(i)==1) cycle
+
+  do i=ncils,ncels		!for all cells in the very center 
+    if (knots(i)==1) cycle	!and only for non-EK cells
     ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
     persu=0.
     aa=0 ; bb=0 ; cc=0
     do j=1,nvmax
-      k=vei(i,j)
-      if (k==0.or.k>ncels) cycle
-      b=uc-malla(k,3)
-      if (b<-1D-4) then
-!        ux=malla(k,1)  ; uy=malla(k,2)  ; uz=malla(k,3)
+      k=vei(i,j) 
+      if (k==0.or.k>ncels) cycle	!only if the neighbour is not a border cell
+      b=uc-malla(k,3) 						!b = difference in z-direction between i and k
+      if (b<-1D-4) then						!wenn es nur ganz leicht bergab geht
         uux=ua-malla(k,1)      ; uuy=ub-malla(k,2)      ; uuz=uc-malla(k,3) 
-        d=sqrt(uux**2+uuy**2+uuz**2)
+        d=sqrt(uux**2+uuy**2+uuz**2) 		!Distance between the cell centres
         d=1/d
-!        if (abs(uux)<1D-13) uux=0. ; if (abs(uuy)<1D-13) uuy=0. ; if (abs(uuz)<1D-13) uuz=0.
-        aa=aa-uux*d ; bb=bb-uuy*d ; cc=cc-uuz*d
+        aa=aa-uux*d ; bb=bb-uuy*d ; cc=cc-uuz*d !how strong the neighbours (in total) deviate from i -> inhomogeneity
       end if
     end do
-    d=sqrt(aa**2+bb**2+cc**2)
+    d=sqrt(aa**2+bb**2+cc**2)	!d = Mass für Gesamtabweichung aller Nachbarn von i
     if (d>0) then
-!      a=1!q3d(i,1,2) ; if (a>tadif) a=tadif
       d=tacre/d
-!      d=d/(1+tadi*q3d(i,1,1)) 
       a=1-q2d(i,1) ; if (a<0) a=0.
       d=d*a
 			!d is higher the more inhomogen the distribution of cells, the less they are differentiated and the higher the higher tacre is
-      hmalla(i,1)=aa*d
+      hmalla(i,1)=aa*d !-> the position of i will adjust to the one of the neighbours
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
     end if
-
   end do
 
   do i=1,ncils-1
@@ -865,8 +868,8 @@ hmalla(i,3)=hmalla(i,3)+a*elas
 end subroutine pushingnovei
 
 subroutine biaixbl ! RZ: THIS SEEMS A LITTLE CRAPPY: DISCRETE?!
-  do i=1,ncils-1
-    if (malla(i,2)<-tadi) then
+  do i=1,ncils-1	!for all cells in the very centre (-> primary EK?)
+    if (malla(i,2)<-tadi) then !if they are too far away from the long-axis, their Act-Concentration is set to bil/bib
       q3d(i,1,1)=bil
     else
       if (malla(i,2)>tadi) then
