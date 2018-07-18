@@ -51,7 +51,7 @@ integer, public, parameter :: ng=5,ngg=4 !number of genes (ng -> gen number + 1)
 integer, public :: temps,npas
 real*8, public,  parameter :: la=1.      !distance between cells in the original conditions
 
-!name in the simulation of the different model parameters (some not in use)
+!different model parameters (some not in use)
 real*8, public :: ud,us  
 real*8, public :: tacre 
 real*8, public :: tahor
@@ -77,7 +77,7 @@ real*8, public :: tadif
 real*8, public :: umelas
 integer, public :: maxcels
 
-!de implementacio
+!for implementation
 real*8, parameter ::  delta=0.005D1 , vmin=0.015D1 
 integer,public :: nca,icentre,centre,ncils,focus
 real*8,public:: x,y,xx,yy
@@ -86,11 +86,11 @@ integer, public :: nnous
 integer, public :: nmaa,nmap
 integer, public,allocatable :: mmaa(:),mmap(:)
 
-!les tipiques
+!the typical
 integer, public :: i,j,k,ii,jj,kk,iii,jjj,kkk,iiii,jjjj,kkkk,iiiii,jjjjj,kkkkk
 real*8, public :: a,b,c,d,e,f,g,h,aa,bb,cc,dd,ee,ff,gg,hh,aaa,bbb,ccc,ddd,eee,fff,ggg,hhh,panic
 
-!de visualitzacio
+!for visualization
 integer, public :: vlinies,vrender,vmarges,vvec,vvecx,vveck,vex,vn
 integer, public :: nc
 integer, public :: pin,pina 
@@ -98,24 +98,18 @@ integer, public :: submenuid
 integer, public :: nivell,kko 
 
 !constants
-!real(kind=gldouble), public, parameter ::  pi = 3.141592653589793_gldouble
 real*8, public, parameter ::  pii = 31.41592653589793D-1
 
-
-
 CONTAINS
-
-
-
 
 subroutine ciinicial
   real*8 ua,ub,uc,ux,uy,uz
 
-  !valors de core
+  !core values
   ncz=4
   temps=0
   npas=1
-  !de visualitzacio
+  !values for visualization
   vlinies=1
   vrender=1
   vvec=0
@@ -140,24 +134,26 @@ subroutine dime
 
   umelas=1-elas
 
-  !valors de vars
+  
   j=0
-  do i=1,radi   ; j=j+i ; end do ; ncals=6*j+1 
+  do i=1,radi   ; j=j+i ; end do ; ncals=6*j+1 !calculate the number of ncals
   j=0
-  do i=1,radi-1 ; j=j+i ; end do ; ncels=6*j+1
-  a=pii*0.2D1/0.36D3
+  do i=1,radi-1 ; j=j+i ; end do ; ncels=6*j+1 !calculate the number of ncels
+
+
+  a=pii*0.2D1/0.36D3		!a degree value multiplied with this a gives the equivalent rad value (for the cos and sin values)
+  !these values added to a center coordinate, will result in the 6 x and y components of the neigbours (in a hexagon shape)
   csu=dsin(0*a)  ; ssu=dcos(0*a)
   csd=dsin(60*a)  ; ssd=dcos(60*a)
   cst=dsin(120*a) ; sst=dcos(120*a)
   csq=dsin(180*a) ; ssq=dcos(180*a)
   csc=dsin(240*a) ; ssc=dcos(240*a)
   css=dsin(300*a) ; sss=dcos(300*a)
-!  sse=dint(sse*1D14)*1D-14 ; cse=dint(cse*1D14)*1D-14
 
-  !alocatacions
+
+  !allocations
   allocate(cv(ncals,nvmax))
   allocate(cmalla(ncals,3))
-
   allocate(malla(ncals,3))
   allocate(vei(ncals,nvmax))
   allocate(hmalla(ncals,3))
@@ -170,28 +166,24 @@ subroutine dime
   allocate(mmap(radi))
   allocate(mmaa(radi))
 
-  !matrius de visualitzacio
+  !matrices for visualisation
   allocate(px(ncals)) ; allocate(py(ncals)) ; allocate(pz(ncals))
 
   ampl=radi*0.75
 
-  !valors de zeros
+  !values that are zero
   vei=0. ; nveins=0. ; malla=0. ; q2d=0. ; q3d=0. ; knots=0 ; hmalla=0. ; hvmalla=0.
   
-  !valors inicials
+  !initial values
   malla(1,1)=0. ; malla(1,2)=0. ; malla(1,3)=1.
   nca=1
   nveins=6
 
-  !valors inicials de quantitats
-!  q3d(:ncils,1,1)=1.1 
-
-  !valors inicials de la malla
-
 al: do icentre=1,ncels
     x=malla(icentre,1) ; y=malla(icentre,2)
 
-    !cap a dalt ,1
+    !calculate for each center cell (icentre) the 6 neighbouring coordinates. 
+    !Posar then checks if the coordinate is already a cell and if it is already a neighbour. If not, it makes a new cell that is a neighbour of the current cell (icentre)
     xx=x+csu*la ; yy=y+ssu*la ; j=1 ; jj=4 ; call posar
     xx=x+csd*la ; yy=y+ssd*la ; j=2 ; jj=5 ; call posar
     xx=x+cst*la ; yy=y+sst*la ; j=3 ; jj=6 ; call posar
@@ -199,103 +191,94 @@ al: do icentre=1,ncels
     xx=x+csc*la ; yy=y+ssc*la ; j=5 ; jj=2 ; call posar
     xx=x+css*la ; yy=y+sss*la ; j=6 ; jj=3 ; call posar
 
-!    xx=x ; yy=y+la ; j=1 ; jj=4 ; call posar
-!    xx=x+csd*la ; yy=y+ssd*la ; j=2 ; jj=5 ; call posar
-!    xx=x+csd*la ; yy=y-ssd*la ; j=3 ; jj=6 ; call posar
-!    xx=x ; yy=y-la ; j=4            ; jj=1 ; call posar
-!    xx=x-csd*la ; yy=y-ssd*la ; j=5 ; jj=2 ; call posar
-!    xx=x-csd*la ; yy=y+ssd*la ; j=6 ; jj=3 ; call posar
-end do al
-do i=2,ncels
-  do j=1,nvmax
-    if (vei(i,j)>ncels) then ; vei(i,j)=ncals ; end if 
+  do i=2,ncels
+    do j=1,nvmax
+      if (vei(i,j)>ncels) then !if a cell has a neighbour, that is not within the ncels
+        vei(i,j)=ncals       !then replace this neigbhour with the highest cell -> its a marked neighbour
+      end if 
+    end do
   end do
-end do
-do k=1,3
-do i=2,ncels
-  do j=1,nvmax-1
-    if (vei(i,j)==ncals.and.vei(i,j+1)==ncals) then 
-      do jj=j,nvmax-1
-        vei(i,jj)=vei(i,jj+1)
+
+  do k=1,3
+    do i=2,ncels
+      do j=1,nvmax-1
+        if (vei(i,j)==ncals.and.vei(i,j+1)==ncals) then !if a cell has two adjacent marked neighbours as defined above
+          do jj=j,nvmax-1
+            vei(i,jj)=vei(i,jj+1)			      !then replace this and all the coming neighbours with the next neighbour --> reduce these two marked neighbours to one
+          end do
+        end if 
       end do
-    end if 
+    end do
   end do
-end do
-end do
-do i=2,ncels
-  k=0
-  do j=1,nvmax
-    if (vei(i,j)==ncals.and.k==0) then ; k=1 ; cycle ; end if
-    if (vei(i,j)==ncals.and.k==1) then ; vei(i,j)=0 ; exit ; end if
+
+  do i=2,ncels
+    k=0
+    do j=1,nvmax		!search in all neighbours for marked ones
+      if (vei(i,j)==ncals.and.k==0) then ; k=1 ; cycle ; end if	!if its the first marked neighbour of the current cell, its still okay
+      if (vei(i,j)==ncals.and.k==1) then ; vei(i,j)=0 ; exit ; end if !if its the second one, delete it and go to the next cell
+    end do
   end do
-end do
-malla=dnint(malla*1D14)*1D-14
-do i=1,ncels
-  do j=1,3
-    if (abs(malla(i,j))<1D-14) malla(i,j)=0. ; end do ; end do
+
+  !trim all the values in malla
+  malla=dnint(malla*1D14)*1D-14
+
+  !if then a value is negativ, make it zero
+  do i=1,ncels
+    do j=1,3
+      if (abs(malla(i,j))<1D-14) malla(i,j)=0. 
+    end do
+  end do
 
 !calcul de distancia original entre nodes
 
 !inversio de forma que els primers son als marges
 
-cv=vei
-cmalla=malla
-do i=ncels,1,-1
-  vei(i,:)=cv(ncels-i+1,:)
-  malla(i,:)=cmalla(ncels-i+1,:)
-end do
+  cv=vei
+  cmalla=malla
 
-cv=vei
-do i=ncels,1,-1
-  ii=ncels-i+1
-  do jj=1,ncels
-    do jjj=1,nvmax
-      if (cv(jj,jjj)==i)  vei(jj,jjj)=ii
+  do i=ncels,1,-1
+    vei(i,:)=cv(ncels-i+1,:)		!This transformes vei to its inverse (-> the order of cells is inverted)
+    malla(i,:)=cmalla(ncels-i+1,:)	!This tranformes malla to its inverse
+  end do
+
+  cv=vei
+  !Invert the values of the matrix (19->1, 18->2, 17->3,...,1->19) 0 and 37 stay -> do this with cv (not with vei)
+  do i=ncels,1,-1
+    ii=ncels-i+1
+    do jj=1,ncels
+      do jjj=1,nvmax
+        if (cv(jj,jjj)==i)  vei(jj,jjj)=ii
+      end do
     end do
   end do
-end do
 
-call calculmarges
-nveins=3
-nveins(1)=6
-marge(:,:,4:5)=la
-do i=1,ncels
-!print *,vei(i,1:6)
-end do
-centre=ncels
-ncils=(radi-1)*6+1
-focus=ncils/2-1
-if (radi==2) focus=3
-!print *,ncils,ncels,ncals,"eeee"
+  call calculmarges 
+
+	nveins=3
+	nveins(1)=6
+	marge(:,:,4:5)=la
+
+	centre=ncels
+	ncils=(radi-1)*6+1
+	focus=ncils/2-1
+	if (radi==2) focus=3
   mmaa=0 ; mmap=0
-!  do i=1,radi+1 ; mmap(i)=i ; end do
-!  mmap(radi+2)=ncils-3
+
   do i=1,radi ; mmap(i)=i ; end do
   ii=0
+
   do i=ncils/2+1,ncils/2+radi ; ii=ii+1 ; mmaa(ii)=i ; end do
-!  mmaa(radi+2)=ncils-2
-!  mmaa(radi+1)=ncils/2
-!  nmaa=radi+2 ; nmap=radi+2
+
   nmaa=radi ; nmap=radi
-!do iit=1,int(radibi*2)
-!  do i=1,nmaa
-!    malla(mmaa(i),1)=malla(mmaa(i),1)+0.05D1
-!  end do
-!  do i=1,nmap
-!    malla(mmap(i),1)=malla(mmap(i),1)-0.05D1
-!  end do
-!  malla(4:5,1)=malla(4:5,1)+0.05D1
-!  call calculmarges
-!  call afegircel
-!end do
-call calculmarges
+
+call calculmarges		!braucht es das??
+
 q3d=0
+
 end subroutine dime
 
 subroutine redime
   integer, allocatable :: cv(:,:)
-
-
   real*8 , allocatable :: cmalla(:,:)
   integer iit
 
@@ -336,39 +319,54 @@ end subroutine redime
 subroutine posar
 al: do i=1,nca 
       if (i==icentre) cycle al
-if (dnint(1000000*malla(i,1))==dnint(1000000*xx).and.dnint(1000000*malla(i,2))==dnint(1000000*yy)) then ; 
-        do ii=1,nvmax ; if (vei(icentre,ii)==i) then ; return ; end if ;  end do
-vei(icentre,j)=i ; vei(i,jj)=icentre ; nveins(i)=nveins(i)+1 ; nveins(icentre)=nveins(icentre)+1 ; return
+      if (dnint(1000000*malla(i,1))==dnint(1000000*xx).and.dnint(1000000*malla(i,2))==dnint(1000000*yy)) then ; !check if the current coordinates are already present in malla
+        do ii=1,nvmax 			!check if this point is already a neihbour of the current cell
+           if (vei(icentre,ii)==i) then !if this point is already a neighbour of the current cell, return
+               return
+           end if   
+        end do
+      vei(icentre,j)=i ; vei(i,jj)=icentre ; nveins(i)=nveins(i)+1 ; nveins(icentre)=nveins(icentre)+1 ; return !if not, declare it as neighbour and return 
+														!(it doesn't have to be put into malla, because the point already exists)
       end if
     end do al
-    nveins(icentre)=nveins(icentre)+1 ; nca=nca+1 ; vei(icentre,j)=nca ; vei(nca,jj)=icentre ; malla(nca,1)=xx ; 
-    malla(nca,2)=yy ; malla(nca,3)=1. ; nveins(nca)=nveins(nca)+1
+    nveins(icentre)=nveins(icentre)+1 				!the current cell will get a new neighbour
+    nca=nca+1							!generate the ID of the new cell		
+    vei(icentre,j)=nca						!the current cell has the new cell as neighbour
+    vei(nca,jj)=icentre						!the new cell will have the current cell as neighbour
+    malla(nca,1)=xx ; malla(nca,2)=yy ; malla(nca,3)=1. 	!set the coordinates of the new cell
+    nveins(nca)=nveins(nca)+1					!the new cell gets a neighbour (the current cell)
 end subroutine posar
-
+ 
 subroutine calculmarges
   real*8 cont
   integer kl
 
   marge(:,:,1:3)=0.
-  do i=1,ncels
+
+  do i=1,ncels	
     aa=0. ; bb=0. ; cc=0. ; kl=0
     do j=1,nvmax
-      if (vei(i,j)/=0.) then
+      if (vei(i,j)/=0.) then	!whenever they is a neighbour vei(i,j)
         a=0. ; b=0. ; c=0. ; cont=0
         iii=i 
-        a=malla(i,1) ; b=malla(i,2) ; c=malla(i,3) ; cont=1
-        ii=vei(i,j)  
-        if (ii>ncels) then
+        a=malla(i,1) ; b=malla(i,2) ; c=malla(i,3) ; cont=1	!coordinates of i = (a,b,c)
+        ii=vei(i,j)  !remember the ID of this neighbour
+        if (ii>ncels) then	!if this neighbour is not within ncels
           do jj=j-1,1,-1
-            if (vei(i,jj)/=0) then  
-              if (vei(i,jj)<ncels+1) then ; ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) 
-              cont=cont+1 ; goto 77 ; else ; goto 77 ; end if
+            if (vei(i,jj)/=0) then !look if other neighbours of i are present... 
+              if (vei(i,jj)<ncels+1) then ; !...that are within ncels..
+                ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) !if yes, then add the coordinates of this neighbour to i
+                cont=cont+1 ; goto 77 ; 
+              else ; goto 77 ; !if not (j is the only neighbour within ncels of i), then goto 77
+              end if
             end if 
           end do 
-          do jj=nvmax,j+1,-1
+          do jj=nvmax,j+1,-1 !look also at the other part of the neighbours of i, then the same as above
             if (vei(i,jj)/=0) then  
               if (vei(i,jj)<ncels+1) then ; ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) 
-              cont=cont+1 ; goto 77 ; else ; goto 77 ; end if
+              cont=cont+1 ; goto 77 ; 
+              else ; goto 77 ; 
+              end if
             end if 
           end do 
           goto 77 
@@ -391,9 +389,14 @@ subroutine calculmarges
            goto 77 
         end if
         a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) ; cont=cont+1
-        do jj=1,nvmax ; if (vei(ii,jj)==iii) then ; jjj=jj  ; exit ; end if ; end do
+        do jj=1,nvmax ; if (vei(ii,jj)==iii) then ; jjj=jj  ; exit ; end if ; end do  !search the correspondent neighbour entry for this
+                     								      !relationship in the neighbour
         do jj=jjj+1,nvmax  !comencem la gira
-          if (vei(ii,jj)/=0) then ; if (vei(ii,jj)>ncels) goto 77 ; iii=ii ; ii=vei(iii,jj) ; goto 66 ; end if
+          if (vei(ii,jj)/=0) then !for all other neighbours of the neighbour
+            if (vei(ii,jj)>ncels) goto 77 
+            iii=ii ; ii=vei(iii,jj) !the new ii is now the neighbour of the neighbour
+            goto 66 
+          end if
         end do
         do jj=1,jjj-1  !comencem la gira
           if (vei(ii,jj)/=0) then ; if (vei(ii,jj)>ncels) goto 77 ; iii=ii ; ii=vei(iii,jj) ; goto 66 ; end if
@@ -418,120 +421,92 @@ subroutine reaccio_difusio
 
   do i=1,ncels
     pes(i,:)=0. ; areap(i,:)=0.
-ui: do j=1,nvmax
+ui: do j=1,nvmax !for each neighbour of i
       if (vei(i,j)/=0.) then 
-        ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
-        do jj=j+1,nvmax
-          if (vei(i,jj)/=0.) then
-pes(i,j)=sqrt((marge(i,j,1)-marge(i,jj,1))**2+(marge(i,j,2)-marge(i,jj,2))**2+(marge(i,j,3)-marge(i,jj,3))**2)
-            ux=marge(i,j,1)-ua  ; uy=marge(i,j,2)-ub  ;  uz=marge(i,j,3)-uc 
-            dx=marge(i,jj,1)-ua ; dy=marge(i,jj,2)-ub ; dz=marge(i,jj,3)-uc
-            areap(i,j)=0.05D1*sqrt((uy*dz-uz*dy)**2+(uz*dx-ux*dz)**2+(ux*dy-uy*dx)**2)
-            cycle ui
+        ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)		!Coordinates of i
+        do jj=j+1,nvmax	!Go to the/a next neighbour of i -> jj
+          if (vei(i,jj)/=0.) then	
+            pes(i,j)=sqrt((marge(i,j,1)-marge(i,jj,1))**2+(marge(i,j,2)-marge(i,jj,2))**2+(marge(i,j,3)-marge(i,jj,3))**2)
+            ux=marge(i,j,1)-ua  ; uy=marge(i,j,2)-ub  ;  uz=marge(i,j,3)-uc !Vector u: i->mij
+            dx=marge(i,jj,1)-ua ; dy=marge(i,jj,2)-ub ; dz=marge(i,jj,3)-uc	!Vector d: i->mijj
+						!Betrag des Kreuzproduktes von Vektor u und d -> Fläche zwischen u und d
+            areap(i,j)=0.05D1*sqrt((uy*dz-uz*dy)**2+(uz*dx-ux*dz)**2+(ux*dy-uy*dx)**2)	!Wieso *0.5?? 
+            cycle ui !As soon as an area is calculated, the next neighbour of i is taken into account
           end if
         end do
-pes(i,j)=sqrt((marge(i,j,1)-marge(i,1,1))**2+(marge(i,j,2)-marge(i,1,2))**2+(marge(i,j,3)-marge(i,1,3))**2) 
+				!if j is the only neighbour of i, take the first neighbour as second reference
+        pes(i,j)=sqrt((marge(i,j,1)-marge(i,1,1))**2+(marge(i,j,2)-marge(i,1,2))**2+(marge(i,j,3)-marge(i,1,3))**2) 
         ux=marge(i,j,1)-ua ; uy=marge(i,j,2)-ub ; uz=marge(i,j,3)-uc 
-        dx=marge(i,1,1)-ua ; dy=marge(i,1,2)-ub ; dz=marge(i,1,3)-uc
+        dx=marge(i,1,1)-ua ; dy=marge(i,1,2)-ub ; dz=marge(i,1,3)-uc 
         areap(i,j)=0.05D1*sqrt((uy*dz-uz*dy)**2+(uz*dx-ux*dz)**2+(ux*dy-uy*dx)**2)
       end if
     end do ui
     areasota=sum(areap(i,:))
-    suma=sum(pes(i,:))+2*areasota ; areasota=areasota/suma ; pes(i,:)=pes(i,:)/suma 
-    do k=1,4 !ng ATENCIO
-      do kk=2,ncz-1
-        hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk-1,k)-q3d(i,kk,k))
+    suma=sum(pes(i,:))+2*areasota 
+		areasota=areasota/suma ; pes(i,:)=pes(i,:)/suma	
+
+		!Mesenchyme-Mesenchyme Diffusion
+    do k=1,4 !for each gene
+      do kk=2,ncz-1 
+        hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk-1,k)-q3d(i,kk,k)) !within a cell (in z-direction)
         hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk+1,k)-q3d(i,kk,k))
-        do j=1,nvmax
+        do j=1,nvmax !for each neighbour
           if (vei(i,j)/=0) then 
             ii=vei(i,j)
-            if (ii==ncals) then
-!              if (k/=1) then     !ACHTUNG aixo es perque als marges de la dent tenim molt activador: ames es calcul ineficient
-                hq3d(i,kk,k)=hq3d(i,kk,k)+pes(i,j)*(-q3d(i,kk,k)*0.044D1)      !sink     
-!              end if
-            else
-              hq3d(i,kk,k)=hq3d(i,kk,k)+pes(i,j)*(q3d(ii,kk,k)-q3d(i,kk,k)) 
+            if (ii==ncals) then !if the neighbour is a border cell 
+              hq3d(i,kk,k)=hq3d(i,kk,k)+pes(i,j)*(-q3d(i,kk,k)*0.044D1)      !sink     
+            else !if not
+              hq3d(i,kk,k)=hq3d(i,kk,k)+pes(i,j)*(q3d(ii,kk,k)-q3d(i,kk,k))  !normal diffusion between neighbours in horizontal direction
             end if
           end if
         end do
       end do
-      !kk=ncz
-      hq3d(i,ncz,k)=areasota*(-q3d(i,ncz,k)*0.044D1) 
-      hq3d(i,ncz,k)= hq3d(i,ncz,k)+areasota*(q3d(i,ncz-1,k)-q3d(i,ncz,k))
+
+			!Diffusion in the last mesenchyme cell (in vertical direction)
+      hq3d(i,ncz,k)=areasota*(-q3d(i,ncz,k)*0.044D1) !sink in the last mesenchyme cell
+      hq3d(i,ncz,k)= hq3d(i,ncz,k)+areasota*(q3d(i,ncz-1,k)-q3d(i,ncz,k)) !and diffusion into the upper mesenchyme cell
       do j=1,nvmax
         if (vei(i,j)/=0) then 
           ii=vei(i,j)
-          if (ii==ncals) then
-!            if (k/=1) then     !ACHTUNG aixo es perque als marges de la dent tenim molt activador
-              hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(-q3d(i,ncz,k)*0.044D1)   !sink     
-!            end if
+          if (ii==ncals) then !and in vertical direction
+            hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(-q3d(i,ncz,k)*0.044D1)   !sink if the neighbour is a border cell  
           else
             hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(q3d(ii,ncz,k)-q3d(i,ncz,k)) 
           end if
         end if
       end do
     end do
-    pes(i,:)=pes(i,:)*suma ; areasota=areasota*suma ; suma=suma-areasota ; pes(i,:)=pes(i,:)/suma 
-    areasota=areasota/suma
-    do k=1,4 !ng ATENCIO
-      hq3d(i,1,k)=areasota*(q3d(i,2,k)-q3d(i,1,k))
+
+    pes(i,:)=pes(i,:)*suma ; areasota=areasota*suma 
+		
+		!Epithelial Diffusion
+		suma=suma-areasota ; pes(i,:)=pes(i,:)/suma; areasota=areasota/suma
+    do k=1,4 !ng 
+      hq3d(i,1,k)=areasota*(q3d(i,2,k)-q3d(i,1,k)) !Mesenchyme->Epithel Diffusion (vertical)
       do j=1,nvmax
         if (vei(i,j)/=0) then 
           ii=vei(i,j)
           if (ii==ncals) then
-!            if (k/=1) then
-              hq3d(i,1,k)=hq3d(i,1,k)+pes(i,j)*(-q3d(i,1,k)*0.044D1)     
-!            end if
+            hq3d(i,1,k)=hq3d(i,1,k)+pes(i,j)*(-q3d(i,1,k)*0.044D1)   !horizontal Diffusion   
           else
             hq3d(i,1,k)=hq3d(i,1,k)+pes(i,j)*(q3d(ii,1,k)-q3d(i,1,k)) 
           end if
         end if
       end do
     end do
+  !no flux at the borders
+  end do
 
-    !aixo es perque no flux al contorn
-!    pes(i,:)=pes(i,:)*suma ; areasota=areasota*suma 
-!    do j=1,nvmax
-!      k=vei(i,j)
-!      if (k>ncels) then
-!        suma=suma-pes(i,j)
-!      end if
-!    end do
-!    suma=suma-areasota ; pes(i,:)=pes(i,:)/suma 
-!    do k=1,ngg
-!      do j=1,nvmax
-!        if (vei(i,j)/=0) then 
-!          ii=vei(i,j)
-!          a=q2d(ii,k)
-!          if (ii<ncels+1) then   ! atencio condicions de contorn de NO SINK 
-!            hq2d(i,k)=hq2d(i,k)+pes(i,j)*(a-q2d(i,k))
-!          end if
-!        end if
-!      end do
-!    end do
+	!Update the q3d Matrix. To reduce the effect: * delta
+  do k=1,4 ! ng 
+    q3d(:,:,k)=q3d(:,:,k)+delta*difq3d(k)*hq3d(:,:,k)
   end do
-  do i=1,4 ! ng ATENCIO
-    q3d(:,:,i)=q3d(:,:,i)+delta*difq3d(i)*hq3d(:,:,i)
-  end do
-!  do i=1,ng
-!    a=maxval(q3d(:,:,i))
-!    do j=1,10
-!      b=j ; b=1/b
-!      if (a/b>1) exit
-!    end do    
-!    b=j ; b=b*1D7
-!    q3d(:,:,i)=aint(q3d(:,:,i)*b) ; q3d(:,:,i)=q3d(:,:,i)/b
-!  end do
-!  do i=1,ngg
-!    q2d(:,i)=q2d(:,i)+delta*difq2d(i)*hq2d(:,i)
-!  end do
 
   !REACCIO
   hq3d=0.
   do i=1,ncels
-!    areasota=sum(areap(i,:))  ! no ho fem perque
-    if (q3d(i,1,1)>1) then
-      if (i>=ncils) knots(i)=1 
+    if (q3d(i,1,1)>1) then 			!if the activator concentration in the epithelial cell is high enough..
+      if (i>=ncils) knots(i)=1 	!..and if it is in the centre (within ncils), then it (becomes) a knot cell
     end if
     a=acac*q3d(i,1,1)-q3d(i,1,4)
     if (a<0) a=0.
@@ -558,15 +533,13 @@ pes(i,j)=sqrt((marge(i,j,1)-marge(i,1,1))**2+(marge(i,j,2)-marge(i,1,2))**2+(mar
       a=acec*q3d(i,1,1)-mu*q3d(i,1,4)-difq3d(ng)*q3d(i,1,3)
       if(a<0.) a=0.
       hq3d(i,1,4)=a
-!    hq3d(i,1,:)=hq3d(i,1,:)*areasota
   end do
 
-  !degradacio
-!  hq3d(:,:,1)=hq3d(:,:,1)-mu*q3d(:,:,1)
+	if (maxval(abs(hq3d(:,1,1:2)))>1D100) then ; 
+		print *,"PANIC OVERFLOW" ; 
+		panic=1 ; return ; 
+	end if
 
-if (maxval(abs(hq3d(:,1,1:2)))>1D100) then ; 
-!print *,"PANIC OVERFLOW" ; 
-panic=1 ; return ; end if
   do i=1,4 
     q3d(:,1,i)=q3d(:,1,i)+delta*hq3d(:,1,i)
   end do
@@ -614,6 +587,7 @@ subroutine empu
 !      d=d/(1+tadi*q3d(i,1,1)) 
       a=1-q2d(i,1) ; if (a<0) a=0.
       d=d*a
+			!d is higher the more inhomogen the distribution of cells, the less they are differentiated and the higher the higher tacre is
       hmalla(i,1)=aa*d
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
@@ -1561,63 +1535,28 @@ end subroutine
 subroutine iteracio(tbu,tbudone)
   integer tbu,ite,io,tbudone
 
-!print*, "ITERACIO START"
   do ite=tbudone+1,tbu
     panic=0
     hmalla=0.
-!print*, "#1", ite, tbu
+
     call reaccio_difusio
-!print*, 1
     if (panic==1) return
-!print*, 2
     call biaixbl
-!print*, 3
     call diferenciacio
-!print*, 4
     call empu
-!print*, 5
     call stelate
-!print*, 6, "NOW THE PROB STARTS"
     call pushingnovei
-!print*, 7
     call pushing
-!print*, 8
 !    call biaixbld
     call promig
-!print*, 9
     call actualitza
-!print*, 10
     call afegircel
-!print*, 11
     call calculmarges
-!print*, 12
+
     temps=temps+1
     a=ite
     if (ite/1000==a/1000.) print *,ite
-end do
-
-!print *,temps
-
-!a=0
-!do i=1,ncels
-!  if (malla(i,3)>a) then
-!    a=malla(i,3)
-!    ii=i
-!  end if
-!end do
-!  print *,temps,maxval(q3d(ncils:ncels,1,1)),"act",maxval(q3d(:,:,2)),"inh"
-!print *,ncels,maxval(q2d(:,1))
-!  print *,"inh",maxval(q3d(:,:,3)),"fgf",q3d(1,1,3),"marge fgf",q3d(1,1,1),"marge act",q3d(1,1,2),"marge inh"
-!j=0 ; a=0.
-!do i=1,ncels
-!  if (q3d(i,1,1)>a) then ; a=q3d(i,1,1) ; j=i ; end if 
-!end do
-!print *,j,"inde"
-
-  !print *,maxval(q3d(:,:,4)),"ect"
-  !print *,maxval(hmalla(:,1)),"hx",maxval(hmalla(:,2)),"hy",maxval(hmalla(:,3)),"hz",maxval(q2d(:,1)),"dif" 
-  !print *,a,"angle"
-  !print *,nnous,kko,maxval(nveins),"maxveins",ncz,"ncz",focus,"focus"
+  end do
 end subroutine iteracio
 
 end module coreop2d
@@ -2314,7 +2253,7 @@ print *,"running", itee, trim(cac)//".out"//trim(iterall)
 
 iteedone=1000
 iteestart=0
-do while(iteedone.le.itee+1)
+do while(iteedone.le.itee+1)	!as long as iteedone less or equal (.le.) to itee+1
 
   call iteracio(iteedone,iteestart)
   iteestart=iteedone
