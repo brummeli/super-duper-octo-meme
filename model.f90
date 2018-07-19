@@ -562,6 +562,8 @@ subroutine diferenciacio
   end do
 end subroutine diferenciacio
 
+!Epithelial Proliferation
+!calculates pushing between cells resulting from epithelial growth and border growth
 subroutine empu
   real*8 ux,uy,uz,uux,uuy,uuz,ua,ub,uc,uuuz,uaa,ubb,uuux,uuuy,duux,duuy
   real*8 persu(nvmax,3)
@@ -570,69 +572,68 @@ subroutine empu
   hvmalla=0.
   hmalla=0
 
-  do i=ncils,ncels		!for all cells in the very center 
+  do i=ncils,ncels					!for all cells in the very center 
     if (knots(i)==1) cycle	!and only for non-EK cells
     ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
     persu=0.
     aa=0 ; bb=0 ; cc=0
     do j=1,nvmax
       k=vei(i,j) 
-      if (k==0.or.k>ncels) cycle	!only if the neighbour is not a border cell
-      b=uc-malla(k,3) 						!b = difference in z-direction between i and k
-      if (b<-1D-4) then						!wenn es nur ganz leicht bergab geht
+      if (k==0.or.k>ncels) cycle				!only if the neighbour is not a border cell
+      b=uc-malla(k,3) 									!b = difference in z-direction between i and k
+      if (b<-1D-4) then									!if the neighbour is a certain amount higher than i
         uux=ua-malla(k,1)      ; uuy=ub-malla(k,2)      ; uuz=uc-malla(k,3) 
         d=sqrt(uux**2+uuy**2+uuz**2) 		!Distance between the cell centres
         d=1/d
         aa=aa-uux*d ; bb=bb-uuy*d ; cc=cc-uuz*d !how strong the neighbours (in total) deviate from i -> inhomogeneity
       end if
     end do
-    d=sqrt(aa**2+bb**2+cc**2)	!d = Mass für Gesamtabweichung aller Nachbarn von i
+    d=sqrt(aa**2+bb**2+cc**2)						!d = measure for total deviation of all neighbours of i
     if (d>0) then
       d=tacre/d
       a=1-q2d(i,1) ; if (a<0) a=0.
       d=d*a
 			!d is higher the more inhomogen the distribution of cells, the less they are differentiated and the higher the higher tacre is
-      hmalla(i,1)=aa*d !-> the position of i will adjust to the one of the neighbours
+      hmalla(i,1)=aa*d !-> cells drift away from each other
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
     end if
   end do
 
-  do i=1,ncils-1
+  do i=1,ncils-1																	!within ncels, but not the centre
     aa=0. ; bb=0. ; a=-0.3 ; b=0. ; c=0. 
     ua=malla(i,1) ; ub=malla(i,2)
     do j=1,nvmax
       k=vei(i,j)
-      if (k<1.or.k>ncels) cycle
-      if (k>ncils-1) then 
-        uux=ua-malla(k,1)   ; uuy=ub-malla(k,2) 
+      if (k<1.or.k>ncels) cycle										!z-difference between i and k does not matter as above
+      if (k>ncils-1) then 												!when the neighbour is a centre cell
+        uux=ua-malla(k,1)   ; uuy=ub-malla(k,2) 	!z-difference between i and k does not matter as above
         d=sqrt(uux**2+uuy**2)
         if (d>0) then
-          c=acos(uux/d)
-          if (uuy<0) c=2*pii-c !acos(uux/d)
+          c=acos(uux/d)														!angle between x-axis and d
+          if (uuy<0) c=2*pii-c 										!we want the left (in negative x-direction) angle
         end if
-      else
-!        ux=malla(k,1)  ; uy=malla(k,2)  
+      else 																				!when the neighbour cell is within ncels, but not in the centre (ncils) (same as i)
         uux=ua-malla(k,1)      ; uuy=ub-malla(k,2)
         d=sqrt(uux**2+uuy**2)
         if (d>0) then
-        if (a==-0.3) then
-          a=acos(uux/d)
-          if (uuy<0) a=2*pii-a
+        if (a==-0.3) then													!if a is not already calculated
+          a=acos(uux/d)														!angle between x-axis and d
+          if (uuy<0) a=2*pii-a										!we want the left angle
           if (d>0) then
             dd=1/d
-            uuux=-uuy*dd           ; uuuy=uux*dd
-            uaa=acos(uuux)
+            uuux=-uuy*dd           ; uuuy=uux*dd	!uuux = -uuy/d		uuuy = -uux/d
+            uaa=acos(uuux)												!=acos(-uuy/d)
             if (uuuy<0) uaa=2*pii-uaa
           end if
-        else
-          b=acos(uux/d)
+        else																			!if a is already calculated
+          b=acos(uux/d)														!make the same as with a but with b
           if (uuy<0) b=2*pii-b
           if (d>0) then
             dd=1/d
             duux=-uuy*dd           ; duuy=uux*dd
             ubb=acos(duux)
-            if (duuy<0) ubb=2*pii-ubb!acos(duux) !ubb
+            if (duuy<0) ubb=2*pii-ubb
           end if
         end if  
         end if
@@ -657,9 +658,9 @@ subroutine empu
       if (ddd>dd) then ; aa=-aa ; bb=-bb ; end if
 
     ! ames tenim la traccio cap abaix deguda a l'adhesio al mesenkima    
+		!We get the result due to adehesion on the mesenchyme
     d=sqrt(aa**2+bb**2)
     if (d>0) then         
-!      a=tahor*q3d(i,1,3)  !biaix sobre el mesenkima
       d=(d+tahor*q3d(i,1,3))/d
       aa=aa*d  
       bb=bb*d
@@ -667,41 +668,33 @@ subroutine empu
     cc=tazmax
     d=sqrt(aa**2+bb**2+cc**2)
     if (d>0) then
-!      a=1-q2d(i,1) ; if (a<0) a=0.
       d=tacre/d
-!      d=d/(1+tadi*q3d(i,1,1))  
       a=1-q2d(i,1) ; if (a<0) a=0.
       d=d*a                          !aixo sembla estar repe i malament
-      hmalla(i,1)=aa*d
+      hmalla(i,1)=aa*d								!This overwrites the hmalle from above??!
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
     end if
   end do
 
-!  do i=1,ncels
-!    if (malla(i,1)>crema.or.malla(i,1)<-crema) hmalla(i,1)=0.
-!  end do
-
   hvmalla=hmalla
 
 end subroutine empu
 
+!calculates pushing between cells resulting from buoyancy
 subroutine stelate
   real*8 ax,ay
 
-  !emputja perperdicular?
-
- ! hvmalla=0.
-  ! cal que empu estigui just abans
-  do i=1,ncels
+  do i=1,ncels													!for all cells
     ax=hmalla(i,1) ; ay=hmalla(i,2) 
-    d=sqrt(ax**2+ay**2)
+    d=sqrt(ax**2+ay**2)									!d= distance to origin in 2D
     if (d/=0) then
       c=hmalla(i,3)
-      if (d>0) then
-        a=sqrt(ax**2+ay**2+c**2) ; a=-c/a
+      if (d>0) then											!is this necessary??
+        a=sqrt(ax**2+ay**2+c**2) 				!a=distance to origin in 3D
+				a=-c/a	
         ax=ax*a ; ay=ay*a
-        dd=sqrt(ax**2+ay**2+d**2) ; dd=difq2d(2)*q3d(i,1,3)/dd
+        dd=sqrt(ax**2+ay**2+d**2) ; dd=difq2d(2)*q3d(i,1,3)/dd	!difq2d(d)=buoyancy
         if (dd>0) then
         a=1-q2d(i,1) ; if (a<0) a=0.
         ax=ax*dd*a ; ay=ay*dd*a ; d=d*dd*a
@@ -711,34 +704,29 @@ subroutine stelate
     end if
   end do
 
-!  hmalla=hmalla+hvmalla
-
-
 end subroutine stelate
 
 subroutine pushing
   real*8 ux,uy,uz,ua,ub,uc,hx,hy,hz,dd,d,uux,uuy,sux,suy,dr,rd
   real*8 persu(nvmax,3)
   integer :: indexx(nvmax)
-  !rotllu finite elements
-!  hvmalla=0.
+
   do i=1,ncels
     ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
     persu=0.
     do j=1,nvmax
       k=vei(i,j)
-      if (k>0.and.k<ncels+1) then
-!        ux=malla(k,1) ; uy=malla(k,2) ; uz=malla(k,3)
+      if (k>0.and.k<ncels+1) then	!if the neighbour is also in ncels
         ux=malla(k,1)-ua ; uy=malla(k,2)-ub ; uz=malla(k,3)-uc 
-        if (abs(ux)<1D-15) ux=0.
+        if (abs(ux)<1D-15) ux=0.	!if the neighbour is very close -> maybe rounding error -> give them the same value
         if (abs(uy)<1D-15) uy=0.
         if (abs(uz)<1D-15) uz=0.
-        dr=sqrt(ux**2+uy**2+uz**2)
-        rd=marge(i,j,5)
+        dr=sqrt(ux**2+uy**2+uz**2) 	!distance between i and j
+        rd=marge(i,j,5)							!distance between i and j in x/y plane ("theoretical distance")
         if (dr<1D-8) dr=0.
         if (rd<1D-8) rd=0.
-        if (knots(i)==1.and.knots(k)==1) then
-          d=dr-rd 
+        if (knots(i)==1.and.knots(k)==1) then !if both cells are EK-cells
+          d=dr-rd 									!deviation from theoretical distance
           dr=d/dr 
           persu(j,1)=ux*dr ; persu(j,2)=uy*dr ; persu(j,3)=uz*dr
         else
@@ -747,7 +735,7 @@ subroutine pushing
             dr=d/dr 
             persu(j,1)=ux*dr ; persu(j,2)=uy*dr ; persu(j,3)=uz*dr
           else
-            if (i>ncils-1) then
+            if (i>ncils-1) then			!if i is within ncils but i and/or k are not EK-cells, then take the default parameter 
               persu(j,1)=ux*crema ; persu(j,2)=uy*crema ; persu(j,3)=uz*crema 
             end if
           end if
@@ -755,33 +743,16 @@ subroutine pushing
       end if
     end do
 
-    !ara sumem en ordre
-!    c=elas*(1+tahor*q3d(i,1,3))
-!    if (c>1) c=1
-!    call ordenarepe(abs(persu(:,1)),indexx,nvmax)
-!    a=0. ; do j=1,nvmax ; a=a+persu(indexx(j),1) ; end do ;
-!hmalla(i,1)=hmalla(i,1)+a*c
-!    call ordenarepe(abs(persu(:,2)),indexx,nvmax)
-!    a=0. ; do j=1,nvmax ; a=a+persu(indexx(j),2) ; end do ;
-!hmalla(i,2)=hmalla(i,2)+a*c
-!    call ordenarepe(abs(persu(:,3)),indexx,nvmax)
-!    a=0. ; do j=1,nvmax ; a=a+persu(indexx(j),3) ; end do ;
-!hmalla(i,3)=hmalla(i,3)+a*c
-
-    !versio rapida sense ordenar (possible biaixos per floats)
-    c=elas !*(1+tahor*q3d(i,1,3))
+    c=elas 
     if (c>1) c=1
     a=0. ; do j=1,nvmax ; a=a+persu(j,1) ; end do ;
-hmalla(i,1)=hmalla(i,1)+a*c
+		hmalla(i,1)=hmalla(i,1)+a*c
     a=0. ; do j=1,nvmax ; a=a+persu(j,2) ; end do ;
-hmalla(i,2)=hmalla(i,2)+a*c
+		hmalla(i,2)=hmalla(i,2)+a*c
     a=0. ; do j=1,nvmax ; a=a+persu(j,3) ; end do ;
-hmalla(i,3)=hmalla(i,3)+a*c
-
+		hmalla(i,3)=hmalla(i,3)+a*c
 
   end do
-
-!  hvmalla=hmalla
 
 end subroutine pushing
 
@@ -793,78 +764,53 @@ subroutine pushingnovei
 
   espai=20
 
-!print*, "6_1"
   allocate(persu(espai,3))
-!print*, "6_2", " NOW THE MESS CONTINUES"
-  !R! if(allocated(indexx)) deallocate(indexx)
   allocate(indexa(espai))
-!print*, indexa
-  !rotllu finite elements
-!print*, "6_3", ncals
-!  hvmalla=0.
-  do i=1,ncels
-!    if (q2d(i,1)>=1.) cycle
+
+  do i=1,ncels																							!for all cells
     ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
     persu=0. ; conta=0
 gg: do ii=1,ncels
       if (ii==i) cycle 
-      do j=1,nvmax ; if (vei(i,j)==ii) cycle gg ; end do
-!      ux=malla(ii,1) ; uy=malla(ii,2) ; uz=malla(ii,3)          
+      do j=1,nvmax ; if (vei(i,j)==ii) cycle gg ; end do    !if i and ii are neighbours or the same, do nothing     
       ux=malla(ii,1)-ua 
-      if (ux>0.14D1) cycle
+      if (ux>0.14D1) cycle																	!if i and ii are too far away from each other, do nothing
       uy=malla(ii,2)-ub 
       if (uy>0.14D1) cycle
       uz=malla(ii,3)-uc
       if (uz>0.14D1) cycle
-      if (abs(ux)<1D-15) ux=0.
+      if (abs(ux)<1D-15) ux=0.															!if they are very close, treat them as if they had the same position (-> rounding?)
       if (abs(uy)<1D-15) uy=0.
       if (abs(uz)<1D-15) uz=0.
-      d=sqrt(ux**2+uy**2+uz**2)
-!      d=aint(d*1D8)*1D-8
-      if (d<0.14D1) then ! ARBITRARY?? RZ
-        conta=conta+1
+      d=sqrt(ux**2+uy**2+uz**2)															!d = distance between i and ii
+      if (d<0.14D1) then ! ARBITRARY?? RZ										!if they are close enough
+        conta=conta+1																				!conta counts how many cells (ii) are close enough to i									
         if (conta>espai) then 
           espaia=espai
           espai=espai+20
-          allocate(cpersu(espai,3)) ; cpersu=0.
+          allocate(cpersu(espai,3)) ; cpersu=0.							!make a new matrix that can hold all values 
           cpersu(1:espaia,:)=persu
           deallocate(persu) ; deallocate(indexa)
           allocate(persu(espai,3)) ; allocate(indexa(espai))
           persu=cpersu
           deallocate(cpersu)
         end if 
-        dd=1/(d+10D-1)**8 ; d=dd/d ; d=aint(d*1D8)*1D-8
-        persu(conta,1)=-ux*d ; persu(conta,2)=-uy*d  ; persu(conta,3)=-uz*d 
+        dd=1/(d+10D-1)**8 ; d=dd/d ; d=aint(d*1D8)*1D-8			!the smaller d, the even more bigger the force -> **8
+        persu(conta,1)=-ux*d ; persu(conta,2)=-uy*d  ; persu(conta,3)=-uz*d !persu: measure of "compression"
       end if
     end do gg
 
-    !ara sumem en ordre
-!    c=elas*(1+tahor*q3d(i,1,3))
-!    if (c>1) c=1
-!    call ordenarepe(abs(persu(:,1)),indexx,espai)
-!    a=0. ; do j=1,espai ; a=a+persu(indexx(j),1) ; end do ;
-!hmalla(i,1)=hmalla(i,1)+a*elas
-!    call ordenarepe(abs(persu(:,2)),indexx,espai)
-!    a=0. ; do j=1,espai ; a=a+persu(indexx(j),2) ; end do ;
-!hmalla(i,2)=hmalla(i,2)+a*elas
-!    call ordenarepe(abs(persu(:,3)),indexx,espai)
-!    a=0. ; do j=1,espai ; a=a+persu(indexx(j),3) ; end do ;
-!hmalla(i,3)=hmalla(i,3)+a*elas
-!  end do
-
     !versio rapida sense ordenar (possible biaixos per floats)
-    c=elas !*(1+tahor*q3d(i,1,3))
-    if (c>1) c=1
+    c=elas 				!Repulsion between tissues
+    if (c>1) c=1	!c is not in use afterwards...
     a=0. ; do j=1,espai ; a=a+persu(j,1) ; end do ;
-hmalla(i,1)=hmalla(i,1)+a*elas
+		hmalla(i,1)=hmalla(i,1)+a*elas
     a=0. ; do j=1,espai ; a=a+persu(j,2) ; end do ;
-hmalla(i,2)=hmalla(i,2)+a*elas
+		hmalla(i,2)=hmalla(i,2)+a*elas
     a=0. ; do j=1,espai ; a=a+persu(j,3) ; end do ;
-hmalla(i,3)=hmalla(i,3)+a*elas
+		hmalla(i,3)=hmalla(i,3)+a*elas
   end do
-!print*, "6_0"
 
-!  hmalla=hmalla+hvmalla
 end subroutine pushingnovei
 
 subroutine biaixbl ! RZ: THIS SEEMS A LITTLE CRAPPY: DISCRETE?!
@@ -879,48 +825,43 @@ subroutine biaixbl ! RZ: THIS SEEMS A LITTLE CRAPPY: DISCRETE?!
   end do
 end subroutine
 
-
-subroutine promig  !genera biaix
-
+!calculates the nucleus traction by the cell borders
+subroutine promig  
   real*8 n
   real*8,allocatable :: pmalla(:,:),testdumb(:)
   integer ncalsi
 
-ncalsi=ncals
-!print*, "8_0", ncals
-if(allocated(pmalla)) deallocate(pmalla)
-allocate(pmalla(ncals,3)) ! RZ
-pmalla=0d0 ! RZ
-
-!print*, "8_1"
+	ncalsi=ncals
+	if(allocated(pmalla)) deallocate(pmalla)
+	allocate(pmalla(ncals,3)) ! RZ
+	pmalla=0d0 ! RZ
   pmalla=malla
-!print*, "8_2"
-  do i=ncils,ncels
-    if (q2d(i,1)==1) cycle
+
+  do i=ncils,ncels							!for all centre cells (ncils)
+    if (q2d(i,1)==1) cycle			!only if they are not already fully differentiated
     a=0. ; b=0. ; c=0. ; n=0
     do j=1,nvmax
       k=vei(i,j)
       if (k/=0.and.k<ncels+1) then
-        a=a+malla(k,1) ; b=b+malla(k,2) ; c=c+malla(k,3)
+        a=a+malla(k,1) ; b=b+malla(k,2) ; c=c+malla(k,3)	!sum up the coordinates of all neighbours that are within ncels
         n=n+1
       end if
     end do
     n=1/n
-    a=a*n ; b=b*n ; c=c*n 
-    a=a-malla(i,1)
+    a=a*n ; b=b*n ; c=c*n 																!and divide it by the number of counted cells -> average position of the neighbours
+    a=a-malla(i,1)																				!Difference to the average of neighbours
     b=b-malla(i,2)
     c=c-malla(i,3)
-    pmalla(i,1)=malla(i,1)+delta*radibi*a
+    pmalla(i,1)=malla(i,1)+delta*radibi*a									!radibi: parameter of nuclear traction
     pmalla(i,2)=malla(i,2)+delta*radibi*b
     if (knots(i)==0) then  ! WHY ONLY IN THE EXTREME CASE ? RZ
-      a=1-q2d(i,1) ; if (a<0) a=0.
+      a=1-q2d(i,1) ; if (a<0) a=0.												!only if the cell is not a EK cell, the z-position is affected by nuclear traction
       pmalla(i,3)=malla(i,3)+delta*radibi*c*a
     end if
   end do
 
-  !per als marges
-  do i=1,ncils-1
-    if (q2d(i,1)==1) cycle
+  do i=1,ncils-1																					!for all cells at the border of ncels (same as with centre cells above)
+    if (q2d(i,1)==1) cycle															
     a=0. ; b=0. ; c=0. ; n=0
     do j=1,nvmax
       k=vei(i,j)
@@ -944,11 +885,12 @@ pmalla=0d0 ! RZ
   malla=pmalla
 end subroutine promig
 
+!updates cell-positions
 subroutine actualitza
 
 !determinem els extrems
-  do i=1,ncils-1
-    if (abs(malla(i,2))<radibii) then
+  do i=1,ncils-1																							!for all border cells of ncels
+    if (abs(malla(i,2))<radibii) then													!radibii = 0.8 -> AP-bias applies only for cells near the x-axis
       if (malla(i,1)>0) then ; hmalla(i,1)=hmalla(i,1)*bia ; 
         hmalla(i,3)=hmalla(i,3)*fac ; 
       end if
@@ -959,17 +901,16 @@ subroutine actualitza
   end do
 
   do i=1,ncels
-    if (hmalla(i,3)<0) hmalla(i,3)=0. !es degut a la pressio del stelate
+    if (hmalla(i,3)<0) hmalla(i,3)=0. !there cannot be any force in negativ z-direction due to the pressure of the stelate
   end do
 
   do i=1,ncels
     if (knots(i)==1) hmalla(i,3)=0.
   end do
   do i=1,ncels
-!    if (q2d(i,1)<1) then
       malla(i,:)=malla(i,:)+delta*hmalla(i,:)  
-!    end if
   end do
+
 end subroutine actualitza
 
 subroutine afegircel
