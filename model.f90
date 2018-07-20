@@ -905,10 +905,11 @@ subroutine actualitza
   end do
 
   do i=1,ncels
-    if (knots(i)==1) hmalla(i,3)=0.
+    if (knots(i)==1) hmalla(i,3)=0.		!there no force at all in z-direction, if the cell is an EK-cell
   end do
+
   do i=1,ncels
-      malla(i,:)=malla(i,:)+delta*hmalla(i,:)  
+      malla(i,:)=malla(i,:)+delta*hmalla(i,:)  !apply the force vector on the positions (malla)
   end do
 
 end subroutine actualitza
@@ -936,32 +937,34 @@ real*8 pup(nvmax),pdo(nvmax)
 real*8 ua,ub,uc,ux,uy,uz,dx,dy
 integer             ord(nvmax)
 
-integer nousnodes(ncels*nvmax,2),externsa(ncels*nvmax)
+integer nousnodes(ncels*nvmax,2),externsa(ncels*nvmax)	!nousnodes(ID of new cell, ID of the two mother cells)
 integer pillats(nvmax),cpillats(nvmax)
 integer nncels,ancels
 integer cj,ini,fi,sjj,ji,ij,ijj,jji
 
+	!"nous" = "new"
   nnous=0
   nousnodes=0
   externsa=0
 
-  !primer identifiquem i anomenen els nous nodes i rescalem la matriu malla i vei
+	!first, identify and name new nodes and reset the arrays malla and vei
   do i=1,ncels
     primer=0. ; kkk=0 ; ji=0
     do j=1,nvmax
-      if (vei(i,j)>ncels) then ; ji=1 ; exit ; end if
+      if (vei(i,j)>ncels) then ; ji=1 ; exit ; end if				!count (-> ji) how many cells have a border cell (>ncels) as neighbour
     end do
     do j=1,nvmax
       k=vei(i,j)
       ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
-      if (k/=0.and.k>i.and.k<=ncels) then
+			!if k is a neighbour that we do not have looked at it already and that is also within ncels
+      if (k/=0.and.k>i.and.k<=ncels) then										
         ux=malla(k,1) ; uy=malla(k,2) ; uz=malla(k,3)
         ux=ux-ua ; uy=uy-ub ; uz=uz-uc
-        a=sqrt(ux**2+uy**2+uz**2)
-        a=dnint(a*1D9)*1D-9
-        if (a>dmax) then  ! afegim nou node
-          nnous=nnous+1 ; nousnodes(nnous,1)=i ; nousnodes(nnous,2)=k
-          if (i<ncils.and.k<ncils) then ; externsa(nnous)=1 ; end if
+        a=sqrt(ux**2+uy**2+uz**2)														!a = distance between i and k
+        a=dnint(a*1D9)*1D-9																	!round a
+        if (a>dmax) then  																	!if the distance is big enough (>2) then we add a new cell(=node)
+          nnous=nnous+1 ; nousnodes(nnous,1)=i ; nousnodes(nnous,2)=k 
+          if (i<ncils.and.k<ncils) then ; externsa(nnous)=1 ; end if	!externsa(x)=1 if the new cell Nr.x is at the border of ncels (not ncils)
         end if
       end if    
     end do 
@@ -972,7 +975,7 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
       do j=1,nvmax
         if (vei(i,j)==0) then
           do jj=j,nvmax-1
-            vei(i,jj)=vei(i,jj+1)
+            vei(i,jj)=vei(i,jj+1)		!delete all entries of vei that are 0
           end do
         end if
       end do
@@ -980,18 +983,14 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
 
     nncels=ncals+nnous
 
+		!allocate new matrices that are big enough to hold also the new cells
     allocate(cmalla(nncels,3))   ; allocate(cvei(nncels,nvmax))
     allocate(cnveins(nncels))    ; allocate(cq2d(nncels,ngg))   ; allocate(cq3d(nncels,ncz,ng))
     allocate(ccvei(nnous,nvmax)) ; allocate(cknots(nncels))     ; allocate(cmarge(nncels,nvmax,8))
 
     cmalla=0. ; cvei=0. ; cnveins=0. ; cq2d=0. ; cq3d=0. ; cknots=0 ; cmarge=0.
 
-    do i=1,nnous
-      ii=nousnodes(i,1) ; kk=nousnodes(i,2)
-!      q3d(ii,:,:)=q3d(ii,:,:)*0.075D1 ;  q2d(ii,:)=q2d(ii,:)*0.075D1
-!      q3d(kk,:,:)=q3d(kk,:,:)*0.075D1 ;  q2d(kk,:)=q2d(kk,:)*0.075D1
-    end do
-
+		!shift all entries in the matrices after the ncels entries by the amount of new cells backwards
     do i=nncels,ncels+nnous+1,-1
       cmalla(i,:)=malla(i-nnous,:)     ; cvei(i,:)=vei(i-nnous,:)
       cnveins(i)=nveins(i-nnous)       ; cq2d(i,:)=q2d(i-nnous,:)
@@ -999,58 +998,55 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
       cmarge(i,:,4:8)=marge(i-nnous,:,4:8)
     end do
 
+		!the first entries up to ncels are kept
     cmalla(1:ncels,:)=malla(1:ncels,:)     ; cvei(1:ncels,:)=vei(1:ncels,:) ; cnveins(1:ncels)=nveins(1:ncels)       
     cq2d(1:ncels,:)=q2d(1:ncels,:)
     cq3d(1:ncels,:,:)=q3d(1:ncels,:,:)     ; cknots(1:ncels)=knots(1:ncels) ; cmarge(1:ncels,:,:)=marge(1:ncels,:,:)   
 
-    do i=1,ncels+nnous ; do j=1,nvmax ; if (cvei(i,j)>ncels) cvei(i,j)=nncels ; end do ; end do
+    !update the "marker" of the border cells from the old ncals value to the new one
+		do i=1,ncels+nnous ; do j=1,nvmax ; if (cvei(i,j)>ncels) cvei(i,j)=nncels ; end do ; end do
 
+		!set all neighbours of the border cells (beyond ncels) to 0
     cvei(ncels+nnous+1:nncels,:)=0
 
-    do i=1,nnous
-      ii=nousnodes(i,1) ; kk=nousnodes(i,2) ; jj=ncels+i
-      cvei(jj,:)=0 ; cvei(jj,1)=ii ; cvei(jj,2)=kk
+    do i=1,nnous																									!for all new cells:
+      ii=nousnodes(i,1) ; kk=nousnodes(i,2) ; jj=ncels+i					!ii & kk: IDs of mother cells, jj: new ID of the new cell
+      cvei(jj,:)=0 ; cvei(jj,1)=ii ; cvei(jj,2)=kk								!Set the mother cells as the first to neighbours of the new cell
 
-      a=cmalla(ii,1)+cmalla(kk,1) ; b=cmalla(ii,2)+cmalla(kk,2)
-      d=sqrt(a**2+b**2)
+      a=cmalla(ii,1)+cmalla(kk,1) ; b=cmalla(ii,2)+cmalla(kk,2)		!a & b: sum of x and y positions of the mother cells
+      d=sqrt(a**2+b**2)																						
       a=a/d ; b=b/d
       d=d/0.20D1
       d=dnint(d*1D10)*1D-10
-      a=d*a ; b=d*b
-      cmalla(jj,1)=a ; cmalla(jj,2)=b
-
+      a=d*a ; b=d*b																								!a and b are divided in half
+      cmalla(jj,1)=a ; cmalla(jj,2)=b															!the position of the new cell is in the middle of its mother cells
       cmalla(jj,3)=(malla(ii,3)+malla(kk,3))*0.05D1
-      cq3d(jj,:,:)=(cq3d(ii,:,:)+cq3d(kk,:,:))*0.05D1 ; cq2d(jj,:)=(cq2d(ii,:)+cq2d(kk,:))*0.05D1
-!      cq3d(jj,:,:)=(cq3d(ii,:,:)+cq3d(kk,:,:))*0.0334D1 ; cq2d(jj,:)=(cq2d(ii,:)+cq2d(kk,:))*0.0334D1
-      !lo de 0.333 en comptes de 0.25 es un truco per que abans hem multiplicat els pares per 3/4
-    end do
- 
-!    where(abs(cmalla)<1D-12) cmalla=0.0 ;  where(abs(cq3d)<1D-12) cq3d=0.0 ; where(abs(cq2d)<1D-12) cq2d=0.0
 
-    do i=1,nnous
-      ii=nousnodes(i,1) ; kk=nousnodes(i,2)
-      jj=ncels+i
+			!The concentrations in the new cell are the mean of the mother cells
+      cq3d(jj,:,:)=(cq3d(ii,:,:)+cq3d(kk,:,:))*0.05D1 ; cq2d(jj,:)=(cq2d(ii,:)+cq2d(kk,:))*0.05D1
+
+			!Mothercell1 is not a neighbour anymore of mothercell2 -> replace it with the new cell
       do j=1,nvmax ; if (cvei(ii,j)==kk) then ; cvei(ii,j)=jj ; exit ; end if ; end do
       do j=1,nvmax ; if (cvei(kk,j)==ii) then ; cvei(kk,j)=jj ; exit ; end if ; end do
-    end do
-
-    do i=1,nnous
+    
       pillats=0
-      ii=nousnodes(i,1) ; kk=nousnodes(i,2)
-      jj=ncels+i
-      !ara em de mirar quin pare es per a sequir-lo (sera anomenat ini) es el que no tingui nodes externs cap a j+1
+      
+			!look which mothercell, that has no border cells at j+1, has to follow
       do j=1,nvmax ; if (vei(ii,j)==kk) then ; jjj=j ; exit ; end if ; end do
+			!jjj: mothercell2 is the "jjj"th neighbour of mothercell1 (before the placement of the new cell)
       kkk=0
+
       do jjjj=jjj+1,nvmax
-        if (vei(ii,jjjj)>0) then
-          if (vei(ii,jjjj)<ncels+1) then 
-            ini=ii ; fi=kk ; kkk=1 ; exit
-          else 
+        if (vei(ii,jjjj)>0) then						!if the next neighbour of mothercell1 
+          if (vei(ii,jjjj)<ncels+1) then 		!... is whithin ncels
+            ini=ii ; fi=kk ; kkk=1 ; exit	
+          else 															!... is not within ncels
             ini=kk ; fi=ii ; kkk=1 ; exit 
           end if
         end if       
       end do
-      if (kkk==0) then
+
+      if (kkk==0) then											!if mothercell1 has no "higher" neighbour, look for lower ones
         do jjjj=1,jjj-1
           if (vei(ii,jjjj)>0) then
             if (vei(ii,jjjj)<ncels+1) then 
@@ -1061,32 +1057,77 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
           end if
         end do
       end if
+
       iii=ini
       cj=1 ; pillats(cj)=iii
-      !ara busquem el j en el que iii te a jj (la cel de la que busquem els veins)
+
       do j=1,nvmax
-        if (cvei(iii,j)==jj) then ; jjj=j ; exit ; end if
+        if (cvei(iii,j)==jj) then ; jjj=j ; exit ; end if		!the new cell is the jjjth neighbour of a mothercell
       end do
-      !costat j+1(dreta); reseguim el veinatge cap al costat j+1 de iii
+
+			!Let's reschedule the line next to it
       kkk=0
-      do j=jjj+1,nvmax ; jji=cvei(iii,j) ; if (jji/=0.and.jji<ncels+nnous+1) then ; iiii=jji 
-      kkk=1 ; exit  ; end if ; end do
-      if (kkk==0) then !no em trobat el vei i cal repasar de rosca
-        do j=1,jjj-1 ; jji=cvei(iii,j) ; if (jji/=0.and.jji<ncels+nnous+1) then ; iiii=jji 
-        kkk=1 ; exit  ; end if ; end do
+      do j=jjj+1,nvmax 
+				jji=cvei(iii,j) 			!look at the neighbour after the new cell that is within ncels
+				if (jji/=0.and.jji<ncels+nnous+1) then 
+					iiii=jji 						!iiii: ID of this neighbour
+      		kkk=1 ; exit  
+				end if 
+			end do
+
+      if (kkk==0) then !if we did not find such a "higher" neighbour, look also at the lower ones
+        do j=1,jjj-1 
+					jji=cvei(iii,j) 
+					if (jji/=0.and.jji<ncels+nnous+1) then 
+						iiii=jji 
+        		kkk=1 ; exit  
+					end if 
+				end do
       end if
-      cj=cj+1 ; if (cj>nvmax) then ; panic=1 ; return ; end if ; pillats(cj)=iiii
-      do j=1,nvmax ; if (cvei(iiii,j)==iii) then ; jjjj=j ; exit ; end if ; end do
+
+      cj=cj+1 
+
+			if (cj>nvmax) then ; panic=1 ; return ; end if 
+
+			pillats(cj)=iiii
+
+      do j=1,nvmax 
+				if (cvei(iiii,j)==iii) then 
+					jjjj=j ; exit 							!iiii (neighbour within ncels of newcell) is the jjjjth neighbour of a mothercell
+				end if 
+			end do
+
 88    iii=iiii ; jjj=jjjj ; kkk=0
-      do j=jjj+1,nvmax ; jji=cvei(iii,j) ; if (jji/=0.and.jji<ncels+nnous+1) then ; iiii=jji 
-      kkk=1 ; exit  ; end if ; end do
-      if (kkk==0) then !no em trobat el vei i cal repasar de rosca
-        do j=1,jjj-1 ; jji=cvei(iii,j) ; if (jji/=0.and.jji<ncels+nnous+1) then ; iiii=jji 
-        kkk=1 ; exit  ; end if ; end do
+
+      do j=jjj+1,nvmax 
+				jji=cvei(iii,j) 
+				if (jji/=0.and.jji<ncels+nnous+1) then 	
+					iiii=jji 										!iiii is the ID of the neighbour within ncels of a mothercell
+      		kkk=1 ; exit  
+				end if 
+			end do
+
+      if (kkk==0) then 								!if we did not find such a "higher" neighbour, look also at the lower ones
+        do j=1,jjj-1 
+					jji=cvei(iii,j) 
+					if (jji/=0.and.jji<ncels+nnous+1) then 
+						iiii=jji 
+        		kkk=1 ; exit  
+					end if 
+				end do
       end if
-      cj=cj+1 ; if (cj>nvmax) then ; panic=1 ; return ; end if ; pillats(cj)=iiii
-      do j=1,nvmax ; if (cvei(iiii,j)==iii) then ; jjjj=j ; exit ; end if ; end do
-      if (iiii==fi) then !equinocci
+
+      cj=cj+1 ; if (cj>nvmax) then ; panic=1 ; return ; end if 
+
+			pillats(cj)=iiii
+
+      do j=1,nvmax 
+				if (cvei(iiii,j)==iii) then 
+					jjjj=j ; exit 									!the mothercell is the jjjjth neighbour of another neighbour of the mothercell
+				end if 
+			end do
+
+      if (iiii==fi) then !equinox					!if the neighbour of the mothercell is the other mothercell
         kkk=0
         do kkkk=jjjj+1,nvmax
           if (cvei(iiii,kkkk)/=0.and.kkk==1) then  
@@ -1098,6 +1139,7 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
           end if
           if (cvei(iiii,kkkk)/=0.and.kkk==0) then; kkk=1 ; sjj=kkkk ;  end if
         end do
+
         if (kkk<2) then
           do kkkk=1,jjjj-1
             if (cvei(iiii,kkkk)/=0.and.kkk==1) then
@@ -1115,7 +1157,7 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
         jjjj=sjj-1
       end if
 
-      !hem fet tota la volta
+      !we have made the whole turn
       if (iiii==ini) then
         cpillats=0
         if (cj>nvmax) then ; panic=1 ; return ; end if ;
@@ -1124,16 +1166,16 @@ integer cj,ini,fi,sjj,ji,ij,ijj,jji
           cpillats(cj-jjj+1)=pillats(jjj) 
         end do
         pillats=cpillats
-        !ara mirem quins poden ser nodes realment
+				
+				!now we look which cells can really exist
         jjj=0
         if (cj>nvmax) then ; panic=1 ; return ; end if ;
         do kkk=1,cj
           kkkk=pillats(kkk)
           if (kkkk>ncels.and.kkkk<=ncels+nnous) jjj=jjj+1
         end do
-        if (jjj==0) then  !no tenim nous nodes als costats aleshores el creuament es impossible
+        if (jjj==0) then  !if we dont have new nodes at the side -> crossing is not possible
           ccvei(i,:)=pillats  
-          !ccmarge(i,:,:)
           do j=1,nvmax
             k=ccvei(i,j)
             if (k/=0) then
@@ -1146,14 +1188,12 @@ uuu:              do kkk=1,nvmax
                     if (cvei(k,kk)/=0.and.cvei(k,kk)==pillats(kkk).and.kkkk==0) then ; kkkk=1 ; ij=kk ; exit uuu ; end if
                   end do uuu
                 end do uu
-                !hem de conectar entre ij i ji
+                !connect between ij and ji
                 if (ji-ij==1) then
                   do kk=nvmax,ji+1,-1 ; cvei(k,kk)=cvei(k,kk-1) ; cmarge(k,kk,4:8)=cmarge(k,kk-1,4:8) ; end do 
                   cvei(k,ji)=jj
-!; cmarge(k,ji,4:5)=0.
                 else
                   cvei(k,ji+1)=jj ; 
-!cmarge(k,ji+1,4:5)=0.
                 end if
               end if
             end if
@@ -1186,7 +1226,7 @@ uuuuu:            do kkk=1,nvmax
                     if (cvei(k,kk)/=0.and.cvei(k,kk)==pillats(kkk).and.kkkk==0) then ; kkkk=1 ; ij=kk ; exit uuuuu ; end if
                   end do uuuuu
                 end do uuuu
-                !hem de conectar entre ij i ji
+                !connect between ij and ji
                 if (ji-ij==1) then
                   do kk=nvmax,ji+1,-1 ; cvei(k,kk)=cvei(k,kk-1) ; cmarge(k,kk,4:8)=cmarge(k,kk-1,4:8) ; end do
                   cvei(k,ji)=jj
@@ -1199,7 +1239,7 @@ uuuuu:            do kkk=1,nvmax
 899 continue     
         end if
 
-        !ara cal afegir les conexions a nodes externs
+				!add connections to external nodes
         ii=nousnodes(i,1) ; kk=nousnodes(i,2)
         kkk=0 ; jjj=0
         do j=1,nvmax
@@ -1220,29 +1260,27 @@ uuuuu:            do kkk=1,nvmax
           else
             ji=jjj
           end if
-          !hem de conectar entre ij i ji
+          !connect between ij and ji
           if (ji-ij==1) then
             do kk=nvmax,ji+1,-1 ; ccvei(i,kk)=ccvei(i,kk-1) ; cmarge(i,kk,4:8)=cmarge(i,kk-1,4:8) ; end do 
             ccvei(i,ji)=nncels;
           else
-            ccvei(i,ji+1)=nncels ; !cmarge(i,ji+1,4:5)=0.
+            ccvei(i,ji+1)=nncels 
           end if
         end if 
         cycle 
       end if
       goto 88
-    end do
+    end do	!End of the big loop
 
-    !ara cal afegir les conexions externes
-
-    !ara remplacem
+    !Update the matrices
     cvei(ncels+1:ncels+nnous,:)=ccvei(1:nnous,:)
 
     deallocate(malla)
     allocate(malla(nncels,3))
     malla=cmalla
 
-    !calculem les noves distancies basals de les noves cels
+    !calculate the distances between new cells -> marge(i, j, 4:8)
     do i=ncels+1,ncels+nnous
       ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
       do j=1,nvmax
@@ -1262,7 +1300,7 @@ uuuuu:            do kkk=1,nvmax
       end do
     end do
 
-    !calculem les distancies basals de les noves conexions entre cels velles i noves
+    !calculate the distances between new and old cells -> marge(i, j, 4:8)
     do i=1,ncels
       ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)
       do j=1,nvmax
@@ -1286,6 +1324,7 @@ uuuuu:            do kkk=1,nvmax
     ancels=ncels
     ncels=ncels+nnous
 
+		!Reallocate all the matrices (use the copies made)
     deallocate(vei)    ; deallocate(hmalla)  ; deallocate(hvmalla)
     deallocate(marge) ;  deallocate(nveins) ; deallocate(q2d)     ; deallocate(q3d)
     deallocate(px)    ;  deallocate(py)     ; deallocate(pz)      ; deallocate(knots)
@@ -1301,7 +1340,7 @@ uuuuu:            do kkk=1,nvmax
     deallocate(cnveins) ; deallocate(cq2d)  ; deallocate(cq3d)
     deallocate(ccvei)   ; deallocate(cknots); deallocate(cmarge) 
 
-    !treiem els zeros
+    !delete the zeros
     do i=1,ncals
       do j=1,nvmax
         if (vei(i,j)==0) then
@@ -1311,6 +1350,8 @@ uuuuu:            do kkk=1,nvmax
         end if
       end do
     end do
+	
+		!update nveins
     do i=1,ncals
       ii=0
       do j=1,nvmax
@@ -1318,7 +1359,7 @@ uuuuu:            do kkk=1,nvmax
       end do
       nveins(i)=ii
     end do
-  end if   !end if FINAL SI TENIM NOVES CELS
+  end if   !end of big if loop (if nnous>0)
 
   do iii=1,nnous
     if (externsa(iii)==1) then  !tenim una nova cel externa
