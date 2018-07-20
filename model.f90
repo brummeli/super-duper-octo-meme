@@ -23,33 +23,31 @@
 !***************************************************************************
 ! gfortran -w -fexceptions -fno-underscoring -fbounds-check source_original.f90 -o TM.e
 
-
 module coreop2d  
-
 
 implicit none
 public :: iteracio,ciinicial,calculmarges,reaccio_difusio,dime
 
 !coreop2d
-real*8, public, allocatable  :: malla(:,:)  ! x,y and z positions of each cell
+real*8, public, allocatable  :: malla(:,:)  					! x,y and z positions of each cell
 real*8, public, allocatable  :: marge(:,:,:) 
-integer, public, allocatable :: vei(:,:)    !indices of each cells neighbors
+integer, public, allocatable :: vei(:,:)    					!indices of each cells neighbors
 integer, public, allocatable :: knots(:)
 integer, public, allocatable :: nveins(:)
 real*8, public, allocatable  :: q2d(:,:)    
-real*8, public, allocatable  :: q3d(:,:,:)  ! concentrations of the different molecules
+real*8, public, allocatable  :: q3d(:,:,:)  					! concentrations of the different molecules
 real*8, public,allocatable   :: difq3d(:),difq2d(:)
 real*8, public, allocatable  :: hmalla(:,:),hvmalla(:,:)
 real*8, public, allocatable  :: px(:),py(:),pz(:)
 
-integer, public :: ncels   !number of cells during the simulations
+integer, public :: ncels   														!number of cells during the simulations
 integer, public :: ncals   
-integer, public :: ncz     !thickness of mesenchyme (number of mesenchyme cell below a specific epithelial cell)
+integer, public :: ncz     														!thickness of mesenchyme (number of mesenchyme cell below a specific epithelial cell)
 integer, parameter, public :: nvmax=30   
 integer, public :: radi
-integer, public, parameter :: ng=5,ngg=4 !number of genes (ng -> gen number + 1)F
+integer, public, parameter :: ng=5,ngg=4						  !number of genes (ng -> gen number + 1)F
 integer, public :: temps,npas
-real*8, public,  parameter :: la=1.      !distance between cells in the original conditions
+real*8, public,  parameter :: la=1.      							!distance between cells in the original conditions
 
 !different model parameters (some not in use)
 real*8, public :: ud,us  
@@ -134,7 +132,6 @@ subroutine dime
 
   umelas=1-elas
 
-  
   j=0
   do i=1,radi   ; j=j+i ; end do ; ncals=6*j+1 !calculate the number of ncals
   j=0
@@ -193,8 +190,8 @@ al: do icentre=1,ncels
 
   do i=2,ncels
     do j=1,nvmax
-      if (vei(i,j)>ncels) then !if a cell has a neighbour, that is not within the ncels
-        vei(i,j)=ncals       !then replace this neigbhour with the highest cell -> its a marked neighbour
+      if (vei(i,j)>ncels) then 	!if a cell has a neighbour, that is not within the ncels
+        vei(i,j)=ncals       		!then replace this neigbhour with the highest cell -> its a marked neighbour
       end if 
     end do
   end do
@@ -202,9 +199,9 @@ al: do icentre=1,ncels
   do k=1,3
     do i=2,ncels
       do j=1,nvmax-1
-        if (vei(i,j)==ncals.and.vei(i,j+1)==ncals) then !if a cell has two adjacent marked neighbours as defined above
+        if (vei(i,j)==ncals.and.vei(i,j+1)==ncals) then 	!if a cell has two adjacent marked neighbours as defined above
           do jj=j,nvmax-1
-            vei(i,jj)=vei(i,jj+1)			      !then replace this and all the coming neighbours with the next neighbour --> reduce these two marked neighbours to one
+            vei(i,jj)=vei(i,jj+1)			      							!then replace this and all the coming neighbours with the next neighbour --> reduce these two marked neighbours to one
           end do
         end if 
       end do
@@ -214,7 +211,7 @@ al: do icentre=1,ncels
   do i=2,ncels
     k=0
     do j=1,nvmax		!search in all neighbours for marked ones
-      if (vei(i,j)==ncals.and.k==0) then ; k=1 ; cycle ; end if	!if its the first marked neighbour of the current cell, its still okay
+      if (vei(i,j)==ncals.and.k==0) then ; k=1 ; cycle ; end if				!if its the first marked neighbour of the current cell, its still okay
       if (vei(i,j)==ncals.and.k==1) then ; vei(i,j)=0 ; exit ; end if !if its the second one, delete it and go to the next cell
     end do
   end do
@@ -237,7 +234,7 @@ al: do icentre=1,ncels
   cmalla=malla
 
   do i=ncels,1,-1
-    vei(i,:)=cv(ncels-i+1,:)		!This transformes vei to its inverse (-> the order of cells is inverted)
+    vei(i,:)=cv(ncels-i+1,:)				!This transformes vei to its inverse (-> the order of cells is inverted)
     malla(i,:)=cmalla(ncels-i+1,:)	!This tranformes malla to its inverse
   end do
 
@@ -277,51 +274,12 @@ q3d=0
 
 end subroutine dime
 
-subroutine redime
-  integer, allocatable :: cv(:,:)
-  real*8 , allocatable :: cmalla(:,:)
-  integer iit
-
-!  ncals=ncels+1
-
-  umelas=1-elas
-
-  !print*, "JUST CHECK, REDIME", ncals
-  !alocatacions
-  allocate(cv(ncals,nvmax))
-  allocate(cmalla(ncals,3))
-
-  allocate(malla(ncals,3))
-  allocate(vei(ncals,nvmax))
-  allocate(hmalla(ncals,3))
-  allocate(hvmalla(ncals,3))
-  allocate(marge(ncals,nvmax,8))
-  allocate(knots(ncals))
-  allocate(nveins(ncals))
-  allocate(q2d(ncals,ngg))
-  allocate(q3d(ncals,ncz,ng))
-  allocate(mmap(radi))
-  allocate(mmaa(radi))
-
-  !matrius de visualitzacio
-  allocate(px(ncals)) ; allocate(py(ncals)) ; allocate(pz(ncals))
-
-  ampl=radi*0.75
-
-  !valors de zeros
-  vei=0. ; nveins=0. ; malla=0. ; q2d=0. ; q3d=0. ; knots=0 ; hmalla=0. ; hvmalla=0.
-  
-  !valors inicials
-  malla(1,1)=0. ; malla(1,2)=0. ; malla(1,3)=1.
-  nca=1
-end subroutine redime
-
 subroutine posar
 al: do i=1,nca 
       if (i==icentre) cycle al
       if (dnint(1000000*malla(i,1))==dnint(1000000*xx).and.dnint(1000000*malla(i,2))==dnint(1000000*yy)) then ; !check if the current coordinates are already present in malla
-        do ii=1,nvmax 			!check if this point is already a neihbour of the current cell
-           if (vei(icentre,ii)==i) then !if this point is already a neighbour of the current cell, return
+        do ii=1,nvmax 																																													!check if this point is already a neihbour of the current cell
+           if (vei(icentre,ii)==i) then 																																				!if this point is already a neighbour of the current cell, return
                return
            end if   
         end do
@@ -329,12 +287,12 @@ al: do i=1,nca
 														!(it doesn't have to be put into malla, because the point already exists)
       end if
     end do al
-    nveins(icentre)=nveins(icentre)+1 				!the current cell will get a new neighbour
-    nca=nca+1							!generate the ID of the new cell		
-    vei(icentre,j)=nca						!the current cell has the new cell as neighbour
-    vei(nca,jj)=icentre						!the new cell will have the current cell as neighbour
+    nveins(icentre)=nveins(icentre)+1 										!the current cell will get a new neighbour
+    nca=nca+1																							!generate the ID of the new cell		
+    vei(icentre,j)=nca																		!the current cell has the new cell as neighbour
+    vei(nca,jj)=icentre																		!the new cell will have the current cell as neighbour
     malla(nca,1)=xx ; malla(nca,2)=yy ; malla(nca,3)=1. 	!set the coordinates of the new cell
-    nveins(nca)=nveins(nca)+1					!the new cell gets a neighbour (the current cell)
+    nveins(nca)=nveins(nca)+1															!the new cell gets a neighbour (the current cell)
 end subroutine posar
  
 subroutine calculmarges
@@ -346,22 +304,22 @@ subroutine calculmarges
   do i=1,ncels	
     aa=0. ; bb=0. ; cc=0. ; kl=0
     do j=1,nvmax
-      if (vei(i,j)/=0.) then	!whenever they is a neighbour vei(i,j)
+      if (vei(i,j)/=0.) then																												!whenever they is a neighbour vei(i,j)
         a=0. ; b=0. ; c=0. ; cont=0
         iii=i 
-        a=malla(i,1) ; b=malla(i,2) ; c=malla(i,3) ; cont=1	!coordinates of i = (a,b,c)
-        ii=vei(i,j)  !remember the ID of this neighbour
-        if (ii>ncels) then	!if this neighbour is not within ncels
+        a=malla(i,1) ; b=malla(i,2) ; c=malla(i,3) ; cont=1													!coordinates of i = (a,b,c)
+        ii=vei(i,j) 																																!remember the ID of this neighbour
+        if (ii>ncels) then																													!if this neighbour is not within ncels
           do jj=j-1,1,-1
-            if (vei(i,jj)/=0) then !look if other neighbours of i are present... 
-              if (vei(i,jj)<ncels+1) then ; !...that are within ncels..
-                ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) !if yes, then add the coordinates of this neighbour to i
+            if (vei(i,jj)/=0) then 																									!look if other neighbours of i are present... 
+              if (vei(i,jj)<ncels+1) then ; 																				!...that are within ncels..
+                ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) 	!if yes, then add the coordinates of this neighbour to i
                 cont=cont+1 ; goto 77 ; 
-              else ; goto 77 ; !if not (j is the only neighbour within ncels of i), then goto 77
+              else ; goto 77 ; 																											!if not (j is the only neighbour within ncels of i), then goto 77
               end if
             end if 
           end do 
-          do jj=nvmax,j+1,-1 !look also at the other part of the neighbours of i, then the same as above
+          do jj=nvmax,j+1,-1 																												!look also at the other part of the neighbours of i, then the same as above
             if (vei(i,jj)/=0) then  
               if (vei(i,jj)<ncels+1) then ; ii=vei(i,jj) ; a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) 
               cont=cont+1 ; goto 77 ; 
@@ -390,11 +348,11 @@ subroutine calculmarges
         end if
         a=a+malla(ii,1) ; b=b+malla(ii,2) ; c=c+malla(ii,3) ; cont=cont+1
         do jj=1,nvmax ; if (vei(ii,jj)==iii) then ; jjj=jj  ; exit ; end if ; end do  !search the correspondent neighbour entry for this
-                     								      !relationship in the neighbour
+                     								      																						!relationship in the neighbour
         do jj=jjj+1,nvmax  !comencem la gira
-          if (vei(ii,jj)/=0) then !for all other neighbours of the neighbour
+          if (vei(ii,jj)/=0) then 																										!for all other neighbours of the neighbour
             if (vei(ii,jj)>ncels) goto 77 
-            iii=ii ; ii=vei(iii,jj) !the new ii is now the neighbour of the neighbour
+            iii=ii ; ii=vei(iii,jj) 																									!the new ii is now the neighbour of the neighbour
             goto 66 
           end if
         end do
@@ -408,7 +366,7 @@ subroutine calculmarges
 end subroutine calculmarges
 
 subroutine reaccio_difusio
-  real*8 pes(ncals,nvmax)         !area del contacte entre i i el vei(i,j)
+  real*8 pes(ncals,nvmax)         !contact area between i and vei(i,j)
   real*8 areap(ncals,nvmax)
   real*8 suma,areasota
   real*8 hq3d(ncals,ncz,ng)
@@ -421,19 +379,20 @@ subroutine reaccio_difusio
 
   do i=1,ncels
     pes(i,:)=0. ; areap(i,:)=0.
-ui: do j=1,nvmax !for each neighbour of i
+ui: do j=1,nvmax 																														!for each neighbour of i
       if (vei(i,j)/=0.) then 
-        ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)		!Coordinates of i
-        do jj=j+1,nvmax	!Go to the/a next neighbour of i -> jj
+        ua=malla(i,1) ; ub=malla(i,2) ; uc=malla(i,3)												!Coordinates of i
+        do jj=j+1,nvmax																											!Go to the/a next neighbour of i -> jj
           if (vei(i,jj)/=0.) then	
             pes(i,j)=sqrt((marge(i,j,1)-marge(i,jj,1))**2+(marge(i,j,2)-marge(i,jj,2))**2+(marge(i,j,3)-marge(i,jj,3))**2)
             ux=marge(i,j,1)-ua  ; uy=marge(i,j,2)-ub  ;  uz=marge(i,j,3)-uc !Vector u: i->mij
             dx=marge(i,jj,1)-ua ; dy=marge(i,jj,2)-ub ; dz=marge(i,jj,3)-uc	!Vector d: i->mijj
 						!Betrag des Kreuzproduktes von Vektor u und d -> Fläche zwischen u und d
             areap(i,j)=0.05D1*sqrt((uy*dz-uz*dy)**2+(uz*dx-ux*dz)**2+(ux*dy-uy*dx)**2)	!Wieso *0.5?? 
-            cycle ui !As soon as an area is calculated, the next neighbour of i is taken into account
+            cycle ui 																												!As soon as an area is calculated, the next neighbour of i is taken into account
           end if
         end do
+
 				!if j is the only neighbour of i, take the first neighbour as second reference
         pes(i,j)=sqrt((marge(i,j,1)-marge(i,1,1))**2+(marge(i,j,2)-marge(i,1,2))**2+(marge(i,j,3)-marge(i,1,3))**2) 
         ux=marge(i,j,1)-ua ; uy=marge(i,j,2)-ub ; uz=marge(i,j,3)-uc 
@@ -441,6 +400,7 @@ ui: do j=1,nvmax !for each neighbour of i
         areap(i,j)=0.05D1*sqrt((uy*dz-uz*dy)**2+(uz*dx-ux*dz)**2+(ux*dy-uy*dx)**2)
       end if
     end do ui
+
     areasota=sum(areap(i,:))
     suma=sum(pes(i,:))+2*areasota !suma: Mantel + 2 * Grundfläche = Oberfläche
 		areasota=areasota/suma ; pes(i,:)=pes(i,:)/suma !Anteil der Oberfläche (0-1) von Grundfläche (areasota) und Mantel (pes)
@@ -448,7 +408,7 @@ ui: do j=1,nvmax !for each neighbour of i
 		!Mesenchyme-Mesenchyme Diffusion
     do k=1,4 !for each gene
       do kk=2,ncz-1 !within the mesenchyme
-        hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk-1,k)-q3d(i,kk,k)) !within a cell (in z-direction)
+        hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk-1,k)-q3d(i,kk,k)) 			 !within a cell (in z-direction)
         hq3d(i,kk,k)=hq3d(i,kk,k)+areasota*(q3d(i,kk+1,k)-q3d(i,kk,k))
         do j=1,nvmax !for each neighbour
           if (vei(i,j)/=0) then 
@@ -463,13 +423,13 @@ ui: do j=1,nvmax !for each neighbour of i
       end do
 
 			!Diffusion in the last mesenchyme cell (in vertical direction)
-      hq3d(i,ncz,k)=areasota*(-q3d(i,ncz,k)*0.044D1) !sink in the last mesenchyme cell
-      hq3d(i,ncz,k)= hq3d(i,ncz,k)+areasota*(q3d(i,ncz-1,k)-q3d(i,ncz,k)) !and diffusion into the upper mesenchyme cell
+      hq3d(i,ncz,k)=areasota*(-q3d(i,ncz,k)*0.044D1) 												!sink in the last mesenchyme cell
+      hq3d(i,ncz,k)= hq3d(i,ncz,k)+areasota*(q3d(i,ncz-1,k)-q3d(i,ncz,k)) 	!and diffusion into the upper mesenchyme cell
       do j=1,nvmax
         if (vei(i,j)/=0) then 
           ii=vei(i,j)
           if (ii==ncals) then !and in vertical direction
-            hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(-q3d(i,ncz,k)*0.044D1)   !sink if the neighbour is a border cell  
+            hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(-q3d(i,ncz,k)*0.044D1)   	!sink if the neighbour is a border cell  
           else
             hq3d(i,ncz,k)=hq3d(i,ncz,k)+pes(i,j)*(q3d(ii,ncz,k)-q3d(i,ncz,k)) 
           end if
@@ -670,7 +630,7 @@ subroutine empu
     if (d>0) then
       d=tacre/d
       a=1-q2d(i,1) ; if (a<0) a=0.
-      d=d*a                          !aixo sembla estar repe i malament
+      d=d*a                           !aixo sembla estar repe i malament
       hmalla(i,1)=aa*d								!This overwrites the hmalle from above??!
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
@@ -888,7 +848,7 @@ end subroutine promig
 !updates cell-positions
 subroutine actualitza
 
-!determinem els extrems
+	!determinem els extrems
   do i=1,ncils-1																							!for all border cells of ncels
     if (abs(malla(i,2))<radibii) then													!radibii = 0.8 -> AP-bias applies only for cells near the x-axis
       if (malla(i,1)>0) then ; hmalla(i,1)=hmalla(i,1)*bia ; 
@@ -1416,19 +1376,18 @@ uuuuu:            do kkk=1,nvmax
     end if
   end do
 
-
   if (nnous>0) then
     call perextrems
   end if
 
 end subroutine afegircel
 
+! identifies which of the cells added in afegircel are in the border of the tooth
 subroutine perextrems
- !fa extrems les noves cels que son al marge entre dos extrems per al biaix
  integer,allocatable :: mau(:)
  integer nousn(ncils)
  integer nunous,nmaaa
-  !ara coregim els extrems
+
      nousn=0
      nunous=0
 er:  do i=1,ncils-1
@@ -1517,10 +1476,7 @@ erra:   do j=1,nvmax
      end if
 end subroutine
 
-subroutine iteracio(tbu,tbudone)
-  integer tbu,ite,io,tbudone
-
-  do ite=tbudone+1,tbu
+subroutine iteracio
     panic=0
     hmalla=0.
 
@@ -1532,16 +1488,14 @@ subroutine iteracio(tbu,tbudone)
     call stelate
     call pushingnovei
     call pushing
-!    call biaixbld
+    call biaixbld
     call promig
     call actualitza
     call afegircel
     call calculmarges
 
     temps=temps+1
-    a=ite
-    if (ite/1000==a/1000.) print *,ite
-  end do
+   
 end subroutine iteracio
 
 end module coreop2d
@@ -1550,192 +1504,21 @@ end module coreop2d
 !***************  MOQUL ***************************************************
 !***************************************************************************
 module esclec
-use coreop2d
-public:: guardaforma,guardaveins,guardapara,llegirforma,llegirveins,llegirpara,llegir
-character*50, public :: fifr,fivr,fipr,fifw,fivw,fipw 
-integer, public :: nom,map,fora,pass,passs,maptotal,is,maxll
-integer, parameter :: mamax=5000
-real*8,  public :: mallap(1000,3,mamax)  !atencio si ncels>1000 el sistema peta al llegir
-real*8,  public :: parap(30,mamax)
-integer, public :: knotsp(1000,mamax)
-integer, public, allocatable :: veip(:,:,:)
-real*8, public,allocatable :: ma(:)
-character*30, public :: cac
-real*8, public :: vamax,vamin
-contains
-subroutine guardapara
-  write (2,5)  parap(1:5,map)
-  write (2,5)  parap(6:10,map)
-  write (2,5)  parap(11:15,map)
-  write (2,5)  parap(16:20,map)
-  write (2,5)  parap(21:25,map)
-  write (2,5)  parap(26:30,map)
-5 format(5F15.6)
-end subroutine guardapara
 
-subroutine guardaforma
-  write (2,*) temps,ncels
-  do i=1,ncels ; write (2,*) malla(i,:) ; end do
-end subroutine guardaforma
+	use coreop2d
+	public:: guardaforma,guardaveins,guardapara,llegirforma,llegirveins,llegirpara,llegir
+	character*50, public :: fifr,fivr,fipr,fifw,fivw,fipw 
+	integer, public :: nom,map,fora,pass,passs,maptotal,is,maxll
+	integer, parameter :: mamax=5000
+	real*8,  public :: mallap(1000,3,mamax)  !atencio si ncels>1000 el sistema peta al llegir
+	real*8,  public :: parap(30,mamax)
+	integer, public :: knotsp(1000,mamax)
+	integer, public, allocatable :: veip(:,:,:)
+	real*8, public,allocatable :: ma(:)
+	character*30, public :: cac
+	real*8, public :: vamax,vamin
 
-subroutine guardaformafe
-  write (2,*) "SOAPFILM"
-  write (2,*) "SPACE_DIMENSION 3"
-  write (2,*) "SIMPLEX_REPRESENTATION"
-  write (2,*) "vertices"
-
-  !write (2,*) temps,ncels
-  do i=1,ncels ; write (2,*) i,malla(i,:); end do
-end subroutine guardaformafe
-
-subroutine guardaformaoff
-  write (2,*) "OFF"  
-
-  write (2,*) ncels,ncels,ncels
-
-  write (2,*) " "
-
-  do i=1,ncels ; write (2,*) malla(i,:); end do
-end subroutine guardaformaoff
-
-subroutine guardaformaobj
-  do i=1,ncels ; write (2,*) "v",malla(i,:); end do
-end subroutine guardaformaobj
-
-
-subroutine guardaknots
-  write (2,*) temps,ncels
-  i=sum(knots)
-  write (2,*) i
-  do i=1,ncels
-    if (knots(i)==1) write (2,*) i
-  end do
-end subroutine guardaknots
-
-subroutine guardaveins(cvei)
-  integer cvei(ncals,nvmax),ccvei(nvmax)
-
-  write (2,*) temps,ncels  
-  do i=1,ncels
-    k=0 ; ccvei=0
-    do j=1,nvmax
-      if (cvei(i,j)/=0) then ; k=k+1 ; ccvei(k)=cvei(i,j) ; end if
-    end do    
-    write (2,*) k
-    write (2,*) ccvei(1:k)
-  end do
-end subroutine guardaveins
-
-subroutine guardaveinsfe(cvei)
-  integer cvei(ncals,nvmax),ccvei(nvmax)
-
-  !em de passar de veinatge a faces
-
-  integer face(ncels*20,5)
-  integer nfa(ncels*20)
-  integer nfaces
-  integer pasos(10)
-  integer npasos,bi,nop
-
-  nfaces=0
-
-  write (2,*) "faces"  
-  do i=1,ncels
-ale: do j=1,nvmax
-       bi=0
-       ii=vei(i,j) ; if (ii==0.or.ii>ncels) cycle
-ele:   do k=1,nvmax
-         iii=vei(ii,k) ; if (iii==0.or.iii>ncels.or.iii==i) cycle
-         do kk=1,nvmax
-           iiii=vei(iii,kk) ; if (iiii==0.or.iiii>ncels) cycle
-           if (iiii==i) then !triangle trobat
-             nfaces=nfaces+1
-             write (2,*) nfaces,i,ii,iii
-             bi=bi+1
-             nop=iii     
-             if (bi==1) cycle ele
-             cycle ale
-           end if
-         end do
-       end do ele
-      
-       do k=1,nvmax
-         iii=vei(ii,k) ; if (iii==0.or.iii>ncels.or.iii==i.or.iii==nop) cycle
-         if (bi==0) cycle
-         ! a per els quadrats
-         do kk=1,nvmax
-           iiii=vei(iii,kk) ; 
-           if (iiii==0.or.iiii>ncels.or.iiii==ii.or.iiii==nop) cycle
-           do kkk=1,nvmax
-             jj=vei(iiii,kkk)
-             if (jj==i) then !triangle trobat
-               nfaces=nfaces+1
-               write (2,*) nfaces,i,ii,iii,iiii
-               cycle ale
-             end if
-           end do
-         end do
-       end do
-
-    end do ale
-  end do
-
-end subroutine guardaveinsfe
-
-subroutine guardaveinsobj(cvei)
-  integer cvei(ncals,nvmax),ccvei(nvmax)
-
-  !em de passar de veinatge a faces
-
-  integer face(ncels*20,5)
-  integer nfa(ncels*20)
-  integer nfaces
-  integer pasos(10)
-  integer npasos,bi,nop
-
-  nfaces=0
-
-  do i=1,ncels
-ale: do j=1,nvmax
-       bi=0
-       ii=vei(i,j) ; if (ii==0.or.ii>ncels) cycle
-ele:   do k=1,nvmax
-         iii=vei(ii,k) ; if (iii==0.or.iii>ncels.or.iii==i) cycle
-         do kk=1,nvmax
-           iiii=vei(iii,kk) ; if (iiii==0.or.iiii>ncels) cycle
-           if (iiii==i) then !triangle trobat
-             nfaces=nfaces+1
-             write (2,*) "f",i,ii,iii
-             bi=bi+1
-             nop=iii
-             if (bi==1) cycle ele
-             cycle ale
-           end if
-         end do
-       end do ele
-      
-       do k=1,nvmax
-         iii=vei(ii,k) ; if (iii==0.or.iii>ncels.or.iii==i.or.iii==nop) cycle
-         if (bi==0) cycle
-         ! a per els quadrats
-         do kk=1,nvmax
-           iiii=vei(iii,kk) ; 
-           if (iiii==0.or.iiii>ncels.or.iiii==ii.or.iiii==nop) cycle
-           do kkk=1,nvmax
-             jj=vei(iiii,kkk)
-             if (jj==i) then !triangle trobat
-               nfaces=nfaces+1
-               write (2,*) "f",i,ii,iii,iiii
-               cycle ale
-             end if
-           end do
-         end do
-       end do
-
-    end do ale
-  end do
-
-end subroutine guardaveinsobj
+	contains
 
 
 subroutine guardaveinsoff(cvei)
@@ -1770,19 +1553,6 @@ ele:   do k=1,nvmax
            iiii=vei(iii,kk) ; if (iiii==0.or.iiii>ncels) cycle
            if (iiii==i) then !triangle trobat
              nfaces=nfaces+1
-             !write (2,*) nfaces,i,ii,iii
-            ! do jj=1,nfacre
-            !   if (ja(jj,1)==i.and.ja(jj,2)==ii.and.ja(jj,3)==iii) goto 7891
-            !   if (ja(jj,1)==ii.and.ja(jj,2)==iii.and.ja(jj,3)==i) goto 7891
-            !   if (ja(jj,1)==iii.and.ja(jj,2)==ii.and.ja(jj,3)==i) goto 7891
-            !   if (ja(jj,1)==iii.and.ja(jj,2)==i.and.ja(jj,3)==ii) goto 7891
-            !   if (ja(jj,1)==ii.and.ja(jj,2)==i.and.ja(jj,3)==iii) goto 7891
-            !   if (ja(jj,1)==i.and.ja(jj,2)==iii.and.ja(jj,3)==ii) goto 7891
-            ! end do
-		! nfacre=nfacre+1
-            ! ja(nfacre,1)=i
-            ! ja(nfacre,2)=ii
-            ! ja(nfacre,3)=iii
 7891         bi=bi+1
              nop=iii     
              if (bi==1) cycle ele
@@ -1821,8 +1591,7 @@ nfaces=0
 ja=0
 nfacre=0
 
-  write (2,*) " "  
-  !write (2,*) "faces"  
+  write (2,*) " "    
     do i=1,ncels
 aale: do j=1,nvmax
        bi=0
@@ -1833,18 +1602,6 @@ aele:   do k=1,nvmax
            iiii=vei(iii,kk) ; if (iiii==0.or.iiii>ncels) cycle
            if (iiii==i) then !triangle trobat
                nfaces=nfaces+1
-           !  do jj=1,nfacre
-           !    if (ja(jj,1)==i.and.ja(jj,2)==ii.and.ja(jj,3)==iii) goto 789
-           !    if (ja(jj,1)==ii.and.ja(jj,2)==iii.and.ja(jj,3)==i) goto 789
-           !    if (ja(jj,1)==iii.and.ja(jj,2)==ii.and.ja(jj,3)==i) goto 789
-           !    if (ja(jj,1)==iii.and.ja(jj,2)==i.and.ja(jj,3)==ii) goto 789
-           !    if (ja(jj,1)==ii.and.ja(jj,2)==i.and.ja(jj,3)==iii) goto 789
-           !    if (ja(jj,1)==i.and.ja(jj,2)==iii.and.ja(jj,3)==ii) goto 789
-           !  end do
-		! nfacre=nfacre+1
-            ! ja(nfacre,1)=i
-            ! ja(nfacre,2)=ii
-            ! ja(nfacre,3)=iii
                call get_rainbow(ma(i),vamin,vamax,c)
                mic=c ; mamx=ma(i)
                call get_rainbow(ma(ii),vamin,vamax,c)
@@ -1949,33 +1706,13 @@ endif
 
 end subroutine get_rainbow
 
-subroutine llegirpara
-
- ! print*, "LLEGINDO"
-
-  read (2,*,END=666,ERR=777)  parap(1:5,map)
-  read (2,*,END=666,ERR=777)  parap(6:10,map)
-  read (2,*,END=666,ERR=777)  parap(11:15,map)
-  read (2,*,END=666,ERR=777)  parap(16:20,map)
-  read (2,*,END=666,ERR=777)  parap(21:25,map)
-  read (2,*,END=666,ERR=777)  parap(26:29,map)
-  
-parap(30,map)=0.8
-5 format(5F13.6)
-  return
-777 print *,"error de lectura para" ; fora=1 ; close(2) ; return
-666 print *,"fi de fitxer para"     ; print *,parap(1:5,map); fora=1 ; close(2) ; return
-end subroutine llegirpara
-
 subroutine llegirparatxt
   character*20 cf
-!  read (2,*,END=999,ERR=888) cfF
-  !print*, "LLEGINDO2"
+
   do i=3,29
-    !print*, i
     read (2,*,END=666,ERR=777)  a ; parap(i,map)=a ; print *,i,a 
   end do
-parap(30,map)=0.8
+	parap(30,map)=0.8
 
 5 format(5F13.6)
   Return
@@ -1987,58 +1724,10 @@ parap(30,map)=0.8
 666 print *,"fi de fitxer para"     ; print *,parap(1:5,map); fora=1 ; close(2) ; return
 end subroutine llegirparatxt
 
-subroutine llegirforma
-  !print*, "LLEGINDO3"
-  read (2,*,END=666,ERR=777) temps,ncels
-  do i=1,ncels ; read (2,*,END=666,ERR=666) malla(i,:) ; end do
-  return
-777 print *,"error de lectura forma" ; fora=1 ; close(2) ; return
-666 print *,"fi de fitxer forma"     ; fora=1 ; close(2) ; return
-end subroutine llegirforma
-
-subroutine llegirknots
-  !print*, "LLEGINDO4"
-  read (2,*,END=666,ERR=777) temps,ncels
-  read (2,*,END=666,ERR=777) j
-  do i=1,j
-    read (2,*,END=666,ERR=777) k
-    knots(k)=1 
-  end do
-  return
-777 print *,"error de lectura knots" ; fora=1 ; close(2) ; return
-666 print *,"fi de fitxer knots"     ; fora=1 ; close(2) ; return
-end subroutine llegirknots
-
-subroutine llegirveins
-  !print*, "LLEGINDO5"
-  read (2,*,END=666,ERR=777) temps,ncels  
-  vei=0
-  do i=1,ncels 
-    read (2,*,END=666,ERR=777) k          
-    read (2,*,END=666,ERR=777) vei(i,1:k)  
-  end do
-  return
-777 print *,"error de lectura v" ; fora=1 ; close(2) ; return
-666 print *,"fi de fitxer v"     ; fora=1 ; close(2) ; return
-end subroutine llegirveins
-
-subroutine agafarparap(imap)
-integer imap
-  parap(1,imap)=temps ; parap(2,imap)=ncels        
-  parap(3,imap)=tacre ; parap(4,imap)=tahor ; parap(5,imap)=elas   ; parap(6,imap)=tadi ; parap(7,imap)=crema
-  parap(8,imap)=acac  ; parap(9,imap)=ihac  ; parap(10,imap)=acaca ; parap(11,imap)=ih  ; parap(12,imap)=acec
-  do j=1,ng  ; parap(12+j,imap)=difq3d(j)    ; end do
-  do j=1,ngg ; parap(12+ng+j,imap)=difq2d(j) ; end do
-  parap(17,imap)=us ; parap(18,imap)=ud;
-  parap(13+ng+ngg,imap)=bip ; parap(14+ng+ngg,imap)=bia ; parap(15+ng+ngg,imap)=bib ;  parap(16+ng+ngg,imap)=bil
-  parap(17+ng+ngg,imap)=radi 
-  parap(18+ng+ngg,imap)=mu     ; parap(19+ng+ngg,imap)=tazmax
-  parap(20+ng+ngg,imap)=radibi ; parap(14+ng+1,imap)=tadif  ;
-  parap(15+ng+1,imap)=fac ; parap(21+ng+ngg,imap)=radibii
-end subroutine agafarparap
-
 subroutine posarparap(imap)
+
 integer imap
+
   temps=parap(1,imap) ; ncels=parap(2,imap)
   tacre=parap(3,imap) ; tahor=parap(4,imap) ; elas=parap(5,imap) ; tadi=parap(6,imap)  ; crema=parap(7,imap)
   acac=parap(8,imap)  ; ihac=parap(9,imap) ; acaca=parap(10,imap); ih=parap(11,imap)   ; acec=parap(12,imap)
@@ -2049,136 +1738,70 @@ integer imap
   radi=parap(17+ng+ngg,imap); mu=parap(18+ng+ngg,imap)  ; tazmax=parap(19+ng+ngg,imap)
   radibi=parap(20+ng+ngg,imap) ; tadif=parap(14+ng+1,imap) 
   fac=parap(15+ng+1,imap) ; radibii=parap(21+ng+ngg,imap) 
+
 end subroutine posarparap
 
-subroutine llegir
-  character*50 cac
-  if (passs==2) then
-    print *,"name of the file (scratch/raw/fill//name) "
-    read (*,*) cac
-!    open(2,file="/scratch/raw/fillv12.913"//cac,status='old',iostat=i)
-    open(2,file=cac,status='old',iostat=i)
-    !print *,i
-    fora=0 ; ki=ncels
-    pass=1
-    passs=0
-    allocate(veip(1000,nvmax,mamax))
-  else
-    if (pass==0) then
-      allocate(veip(1000,nvmax,mamax))
-      open(1,file="inex/noms.dad",status='old',iostat=nom)
-      fora=0
-      pass=1
-      ki=ncels
-      !print *,nom,"fitxer"
-      if (nom/=0) then
-        fifw="INmodel/dents.dad"
-        fifr="INmodel/dents.dad"
-      else
-        read(1,*) fifw
-        read(1,*) fifr 
-      end if
-      close(1)
-!      open(2,file=fifr,status='old',iostat=nom)
-      open(2,file=cac,status='old',iostat=i)
-    end if
-  end if
-  mallap=0
-  parap=0
-  veip=0.
-  knotsp=0 
-  mallap=0.
-  do map=1,mamax
-    ki=ncels
-    call llegirpara
-    call posarparap(map)
-    if (fora==1) exit
-    if (ncels/=ki) then
-      ncals=ncels
-      deallocate (malla) ; deallocate(vei) ; deallocate(knots)
-      allocate(malla(ncels,3)) ; allocate(vei(ncels,nvmax)) ; allocate(knots(ncels))
-      vei=0 ; malla=0 ; knots=0
-    end if
-    call llegirveins
-!print *,1
-    veip(1:ncels,:,map)=vei
-    if (fora==1) exit
-    call llegirknots
-!print *,2
-    knotsp(1:ncels,map)=knots
-    if (fora==1) exit
-    call llegirforma
-!print *,3
-    mallap(1:ncels,:,map)=malla
-    if (fora==1) exit
-   ! print *,map,"numero"
-  end do
-  maxll=map-1
-  map=1
-  call posarparap(map)
-  deallocate (malla) ;  deallocate(q3d)  ; deallocate(px)    ; deallocate(py)     ; deallocate(pz) 
-  deallocate (q2d)   ;  deallocate(marge); deallocate(vei)   ; deallocate(nveins) ; deallocate(hmalla)
-  deallocate(hvmalla);  deallocate(knots) ; deallocate(mmaa) ; deallocate (mmap)
-  ncals=ncels
-  call redime
-  knots=knotsp(1:ncels,map)           
-  malla=mallap(1:ncels,:,map)
-  vei=veip(1:ncels,:,map)
-  !determinemt ncils
-  ncils=0
-  do i=1,ncels
-    do j=1,nvmax
-      if (vei(i,j)>=ncals) then ; ncils=ncils+1 ; exit ; end if
-    end do
-  end do
-  ncils=ncils+1
-  arrow_key_func=0 ![PASSAR]
-  pass=1
-end subroutine llegir
-
-
 subroutine llegirinicial
-open(2,file=cac,status='old',iostat=i)
-!print *,i
-map=1
-!call llegirpara
-call llegirparatxt
-call posarparap(map)
-close(2)
+
+	open(2, file=cac, status='old', iostat=i)
+	map=1
+	call llegirparatxt
+	call posarparap(map)
+	close(2)
+
 end subroutine llegirinicial
 
 subroutine gnuoutputxyz
-integer row
+	integer row
 
-open(17, file = "GnuOutput.txt")
+	open(17, file = "GnuOutput.txt")
 
-do row = 1, ncels
-  write(17, *) malla(row,:)
-  !print *, row, malla(row, 1)
-end do
+	do row = 1, ncels
+  	write(17, *) malla(row,:)
+	end do
+	
+	close(17)
 
-close(17)
 end subroutine gnuoutputxyz
 
 subroutine gnuoutputnet
-integer first
-integer second
+	integer first
+	integer second
 
-open(17, file = "GnuOutput.txt")
+	open(17, file = "GnuOutput.txt")
 
-do first = 1, ncels
-  do second = 1, nvmax
-    if (vei(first, second) > 0) then;
-      write(17, *) malla(first,:)
-      write(17, *) malla(vei(first, second),:)
-      write(17, *)
-    end if
-  end do
-end do
+	do first = 1, ncels
+  	do second = 1, nvmax
+    	if (vei(first, second) > 0) then;
+    	  write(17, *) malla(first,:)
+    	  write(17, *) malla(vei(first, second),:)
+    	  write(17, *)
+    	end if
+  	end do
+	end do
 
-close(17)
+	close(17)
 
 end subroutine gnuoutputnet
+
+!produces a screenshot of the tooth and makes output to plot with mesh in gnuplot
+subroutine rolandGnuOutput(inputfile, progress)
+
+	character*30 :: inputfile
+	integer :: progress
+
+  nfioff=""
+  nfioff=trim(inputfile)//".out"//trim(progress)
+
+	open(22,file=nfioff,iostat=i)
+
+	call guardaveinsoff(vei)
+
+  close(22)
+
+  call execute_command_line("./MMFG "//trim(nfioff)//" & ",wait=.true.)
+
+end subroutine rolandGnuOutput
 
 end module esclec
 
@@ -2188,111 +1811,60 @@ end module esclec
 
 program tresdac
 
-use coreop2d
-use esclec
-implicit none
+	use coreop2d
+	use esclec
+	implicit none
 
-integer :: iteedone,itee,iteestart
-character*10 :: nfi,iterall
-character*60 nfioff!14
-character*4 iteestartc4
-character*5 iteestartc5
-character*6 iteestartc
-
-!control
-!call idate(i,j,k)
-!if (i>8) goto 666
-
-! Create a window
-call getarg(1,cac)		!Inputfile
-call getarg(2,iterall)		!number of iterations
-
-if (cac.eq. "") then; 
-  print *,"you need to indicate an input file after the name of the command" ;        
-  print *,"in the form muscmd.e parameterfile.txt"
-  goto 666 ;
-end if
-
-!Programa
-call ciinicial
-call llegirinicial
-call dime
+	integer :: iteedone,itee,iteestart
+	character*10 :: nfi,iterall
+	character*60 nfioff!14
+	character*4 iteestartc4
+	character*5 iteestartc5
+	character*6 iteestartc
 
 
-temps=0
-pass=0
-maptotal=0
+	! Commandline inputs
+	call getarg(1,cac)				!Inputfile
+	call getarg(2,iterall)		!number of iterations
+
+	if (cac.eq. "") then; 
+  	print *,"you need to indicate an input file after the name of the command" ;        
+  	print *,"in the form muscmd.e parameterfile.txt"
+  	goto 666 ;
+	end if
+
+	!Program
+	call ciinicial
+	call llegirinicial
+	call dime
+
+	temps=0
+	pass=0
+	maptotal=0
 
 10 continue
 
-if(len(trim(iterall))>0)then
-  read(iterall,*) itee
-else
-print *,"How many iterations to run; print -1 to stop the program"
-  read(*,*) itee
-  if (itee==-1) goto 666
-  iterall=""
-endif
+	if(len(trim(iterall))>0)then
+  	read(iterall,*) itee
+	else
+		print *,"How many iterations to run; enter -1 to stop the program"
+  	read(*,*) itee
+  	if (itee==-1) goto 666
+  	iterall=""
+	endif
 
-print *,"running", itee, trim(cac)//".out"//trim(iterall)
+	do ite=1, itee
+		call iteracio
 
-iteedone=1000
-iteestart=0
-do while(iteedone.le.itee+1)	!as long as iteedone less or equal (.le.) to itee+1
+		!every 1000 iterations, make an outputfile
+		if (mod(1000, ite)==0) then
+			call rolandGnuOutput(cac, ite)
+		end if
+	end do
 
-  call iteracio(iteedone,iteestart)
-  iteestart=iteedone
-  iteedone=1000+iteedone
+	call gnuoutputnet
 
-  if(iteestart<10000)then
-    write(iteestartc4,'(I4)') iteestart
-    iteestartc="______"; iteestartc=trim(iteestartc4)
-  else
-    write(iteestartc5,'(I5)') iteestart
-    iteestartc="______"; iteestartc=trim(iteestartc5)
-  endif
-
-  !!!!CALL landmarks ! Lisandro's stuff
-  print *,"name of the output file, " 
-  print *,"NOTE: an number of ___s and .off will be add to the file to indicate GeomView's .off Format"
-
-  if(len(trim(iterall))==0) read (*,*) nfi ; nfioff=nfi//".off"
-  do i=1,len(nfioff)
-    if (nfioff(i:i)==" ") then ; nfioff(i:i)="_" ; end if
-  end do
-
-! RZ NEW: AND WE WANT TO HAVE SCREENSHOTS EVERY 1000 ITERATIONS
-  nfioff=""
-  nfioff=trim(cac)//".out"//trim(iteestartc)
-  print*, nfioff
-
-
-    open(2,file=nfioff,iostat=i)
-    !print *,i
-!  call agafarparap(1)
-!  call guardapara
-!  call guardaknots
-    call guardaveinsoff(vei)
-!  call guardaformafe
-!  call guardaveinsfe(vei)
-!  call guardaformaobj
-!  call guardaveinsobj(vei)
-
-
-    close(2)
-
-  call execute_command_line("./MMFG "//trim(nfioff)//" & ",wait=.true.)
-
-  if(iteedone.gt.itee) exit
-
-end do
-
-if(len(trim(iterall))==0) goto 10
-
-call gnuoutputnet
-
-
-666 print *,"out"
+	666 print *,"out"
 end program tresdac
 
 !***************************************************************************
