@@ -187,6 +187,7 @@ al: do icentre=1,ncels
     xx=x+csq*la ; yy=y+ssq*la ; j=4 ; jj=1 ; call posar
     xx=x+csc*la ; yy=y+ssc*la ; j=5 ; jj=2 ; call posar
     xx=x+css*la ; yy=y+sss*la ; j=6 ; jj=3 ; call posar
+end do al
 
   do i=2,ncels
     do j=1,nvmax
@@ -458,8 +459,8 @@ ui: do j=1,nvmax 																														!for each neighbour of i
   end do
 
 	!Update the q3d Matrix. To reduce the effect: * delta and dependent on diffusion-coefficient difq3d()
-  do k=1,4 ! ng 
-    q3d(:,:,k)=q3d(:,:,k)+delta*difq3d(k)*hq3d(:,:,k)
+  do i=1,4 ! ng 
+    q3d(:,:,i)=q3d(:,:,i)+delta*difq3d(i)*hq3d(:,:,i)
   end do
 
   !REACCIO -> happens only in epithelial cells
@@ -1488,7 +1489,6 @@ subroutine iteracio
     call stelate
     call pushingnovei
     call pushing
-    call biaixbld
     call promig
     call actualitza
     call afegircel
@@ -1524,18 +1524,15 @@ module esclec
 subroutine guardaveinsoff(cvei)
   integer cvei(ncals,nvmax),ccvei(nvmax)
   real*8 c(4),mic(4)
-    !em de passar de veinatge a faces
-
   integer ja(ncels*6,4)
-
   integer face(ncels*20,5)
   integer nfa(ncels*20)
   integer nfaces
   integer pasos(10)
   integer npasos,bi,nop
   real*8 mamx
-
   integer nfacre
+	integer row, i
 
   allocate(ma(ncels))
     call mat
@@ -1606,10 +1603,8 @@ aele:   do k=1,nvmax
                mic=c ; mamx=ma(i)
                call get_rainbow(ma(ii),vamin,vamax,c)
                mic=mic+c
-               !if (ma(ii)>mamx) then ; mic=c ; mamx=ma(ii) ; end if
                call get_rainbow(ma(iii),vamin,vamax,c)
                mic=mic+c
-               !if (ma(iii)>mamx) then ; mic=c; end if 
                mic=mic/3.
              write (2,67) 3,i-1,ii-1,iii-1 !,mic
 67 format (4I4,4F10.6)
@@ -1710,7 +1705,7 @@ subroutine llegirparatxt
   character*20 cf
 
   do i=3,29
-    read (2,*,END=666,ERR=777)  a ; parap(i,map)=a ; print *,i,a 
+    read (2,*,END=666,ERR=777)  a ; parap(i,map)=a ; !print *,i,a 
   end do
 	parap(30,map)=0.8
 
@@ -1721,7 +1716,7 @@ subroutine llegirparatxt
 888 print *,"error";return
 
 777 print *,"error de lectura para" ; fora=1 ; close(2) ; return
-666 print *,"fi de fitxer para"     ; print *,parap(1:5,map); fora=1 ; close(2) ; return
+666 print *,"fi de fitxer para"     ; fora=1 ; close(2) ; return
 end subroutine llegirparatxt
 
 subroutine posarparap(imap)
@@ -1756,8 +1751,8 @@ subroutine gnuoutputxyz
 
 	open(17, file = "GnuOutput.txt")
 
-	do row = 1, ncels
-  	write(17, *) malla(row,:)
+	do row = 1, ncals
+  	write(17, *) malla(row,1:3)
 	end do
 	
 	close(17)
@@ -1770,9 +1765,9 @@ subroutine gnuoutputnet
 
 	open(17, file = "GnuOutput.txt")
 
-	do first = 1, ncels
-  	do second = 1, nvmax
-    	if (vei(first, second) > 0) then;
+	do first = 1, (ncals-1)
+  	do second = 1, 6
+    	if (vei(first, second) > 0.and.vei(first,second) < ncals) then;
     	  write(17, *) malla(first,:)
     	  write(17, *) malla(vei(first, second),:)
     	  write(17, *)
@@ -1787,21 +1782,63 @@ end subroutine gnuoutputnet
 !produces a screenshot of the tooth and makes output to plot with mesh in gnuplot
 subroutine rolandGnuOutput(inputfile, progress)
 
-	character*30 :: inputfile
+	character*30 :: inputfile, sprogress
 	integer :: progress
+	character*60 nfioff
+
+	write(sprogress, *) progress
 
   nfioff=""
-  nfioff=trim(inputfile)//".out"//trim(progress)
+  nfioff=trim(inputfile)//".out"//trim(sprogress)
 
-	open(22,file=nfioff,iostat=i)
+	open(2,file=nfioff,iostat=i)
 
 	call guardaveinsoff(vei)
 
-  close(22)
+  close(2)
 
-  call execute_command_line("./MMFG "//trim(nfioff)//" & ",wait=.true.)
+  !call execute_command_line("./MMFG "//trim(nfioff)//" & ",wait=.true.)
 
 end subroutine rolandGnuOutput
+
+subroutine printmalla
+	integer row, i
+  open(11, file = "initialmalla.txt")
+  do row=1, 37
+    write(11, *) malla(row, :)
+  end do
+  close(11)
+end subroutine printmalla
+
+subroutine printvei
+	integer row, i
+  open(12, file = "initialvei.txt")
+  do row = 1, 37
+    write(12, *) vei(row, 1:6)
+    write(12,*)
+  end do
+  close(12)
+end subroutine printvei
+
+subroutine printmarge
+	integer row, i
+  open(13, file = "initialmarge.txt")
+  do row = ncels, 1, -1
+		write(13,*) "Cell nr.", row, ": "
+    	do i=1, 10
+				write(13,*) marge(((ncels+1)-row), i,1:3)
+			end do
+    write(13,*)
+  end do
+	do row = (ncals-(ncels-2)), ncals
+		write(13,*) "Cell nr.", row, ": "
+    	do i=1, 6
+				write(13,*) marge(row, i,1:3)
+			end do
+    write(13,*)
+  end do
+  close(13)
+end subroutine printmarge
 
 end module esclec
 
@@ -1815,20 +1852,21 @@ program tresdac
 	use esclec
 	implicit none
 
-	integer :: iteedone,itee,iteestart
+	integer :: iteedone,itee,iteestart, ite , doscreenshot
 	character*10 :: nfi,iterall
-	character*60 nfioff!14
 	character*4 iteestartc4
 	character*5 iteestartc5
 	character*6 iteestartc
+	character*1 screenshot
 
 
 	! Commandline inputs
 	call getarg(1,cac)				!Inputfile
 	call getarg(2,iterall)		!number of iterations
+	call getarg(3, screenshot)!if we want every 1000 iterations a screenshot
 
 	if (cac.eq. "") then; 
-  	print *,"you need to indicate an input file after the name of the command" ;        
+  	print *,"you need to indicate an input file after the name of the command"       
   	print *,"in the form muscmd.e parameterfile.txt"
   	goto 666 ;
 	end if
@@ -1838,9 +1876,14 @@ program tresdac
 	call llegirinicial
 	call dime
 
+	call printvei
+	call printmalla
+	call printmarge
+
 	temps=0
 	pass=0
 	maptotal=0
+	doscreenshot=0
 
 10 continue
 
@@ -1853,16 +1896,27 @@ program tresdac
   	iterall=""
 	endif
 
+	if(len(trim(screenshot))>0)then
+  	read(screenshot,*) doscreenshot
+	end if
+
 	do ite=1, itee
 		call iteracio
 
-		!every 1000 iterations, make an outputfile
-		if (mod(1000, ite)==0) then
-			call rolandGnuOutput(cac, ite)
+		if(doscreenshot == 1) then
+			!every 1000 iterations, make an outputfile
+			if (mod(ite, 1000)==0) then
+				call rolandGnuOutput(cac, ite)
+			end if
 		end if
+
 	end do
 
-	call gnuoutputnet
+	if(doscreenshot == 0) then
+		call rolandGnuOutput(cac, (ite-1))
+	end if
+
+	!call gnuoutputnet
 
 	666 print *,"out"
 end program tresdac
